@@ -53,16 +53,16 @@ class Metadata:
 class Image:
     """A resolved image reference.
 
-    Dimensions are coalesced, not privileged: the publisher's declared
-    `width`/`height` wins where present, intrinsic dimensions from the file
-    are the fallback (see `epubx.images`).
+    No size is measured or reported. Sizing belongs to the renderer, which
+    reads the book's own `width`/`height` attributes from the XHTML it is
+    already rendering; guessing here would only duplicate that, from the wrong
+    source, and would make epubx decode image formats it otherwise never
+    touches.
     """
 
     path: str  # zip-relative, normalised, e.g. 'OEBPS/img/cover.jpg'
     media_type: str | None = None
     alt: str | None = None
-    width: int | None = None
-    height: int | None = None
     _book: "object" = field(repr=False, compare=False, default=None)
 
     def read(self) -> bytes:

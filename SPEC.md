@@ -33,8 +33,8 @@ are designed to be final, so later phases add capability without migration.
 ## Scope
 
 **In:** OPF metadata · spine → chapters · TOC (nav or NCX) · block-level
-content graph · footnotes as resolved links · images with displayable
-dimensions · math as a first-class block kind.
+content graph · footnotes as resolved links · images as resolved references ·
+math as a first-class block kind.
 
 **Out (deferred, but named):** DRM handling · image-only/manga books · vertical
 CJK layout · persistence · any UI concern.
@@ -86,19 +86,16 @@ img = ch.images[0]
 img.path        # 'OEBPS/img/cover.jpg' — resolved within the zip
 img.media_type  # from the OPF manifest
 img.alt         # from alt=
-img.width       # publisher width if declared, else intrinsic
-img.height
 data = img.read()   # bytes, lazily fetched
 ```
 
-Dimensions are **coalesced, not privileged**: publisher `width`/`height` where
-present, intrinsic from the file otherwise. Measured rationale: only 4.6% of
-`<img>` tags declare `width` and 0.4% `height`, and no book uses
-`<meta epub:type="viewport">` — so intrinsic is the primary source and the
-declared value is the override.
-
-Intrinsic dimensions are header-only reads (Pillow for raster; SVG via `viewBox`
-attributes). The zip is never extracted to disk.
+No size is measured or reported. Sizing is the renderer's job: it reads the
+book's own `width`/`height` attributes from the XHTML it is already rendering,
+and CSS overrides them anyway. Measuring here would duplicate that from the
+wrong source — and it is the only reason epubx ever needed Pillow, since it
+meant decoding image formats the library otherwise never touches. `media_type`
+(the OPF's declaration) is kept because a renderer needs it for the
+Content-Type; the bytes are handed over as they are.
 
 ### Serving
 
@@ -142,19 +139,19 @@ Also observed and modelled: `bodymatter` / `frontmatter` / `backmatter` /
   fetches individual members on demand; the archive is never extracted to disk.
   An EPUB is a zip, so this is not incidental — laziness, and the <50ms `open()`
   target, both rest on it.
-- `dataclasses`, `typing`, `pathlib`, `urllib.parse`, `collections`, `functools`,
-  `io` — model definitions, href normalisation, memoisation.
+- `dataclasses`, `typing`, `pathlib`, `urllib.parse`, `collections`, `functools`
+  — model definitions, href normalisation, memoisation.
 
 ### Third-party (the complete pip list)
 
 - **`lxml`** (`lxml.etree`, `lxml.html`) — XML and HTML parsing. XPath only;
   **`cssselect` is deliberately excluded** to keep the dependency set minimal.
   Verified absent in the reference environment.
-- **`Pillow`** — intrinsic raster dimensions. Header-only reads (`Image.open`
-  without `load()`); SVG handled separately via `viewBox` attributes.
 - Python ≥ 3.10.
 
-Two packages, both pure-wheel. No `ebooklib`, no BeautifulSoup, no cssselect.
+One package, pure-wheel. No `ebooklib`, no BeautifulSoup, no cssselect, and —
+since sizing belongs to the renderer — no Pillow either: epubx decodes no
+image format, it hands over the book's own bytes.
 
 ---
 

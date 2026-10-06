@@ -30,7 +30,7 @@ b.text          # plain text, when meaningful
 b.target_id     # footnote_ref -> the block it resolves to
 
 img = ch.images[0]
-img.path, img.media_type, img.alt, img.width, img.height
+img.path, img.media_type, img.alt
 data = img.read()   # bytes, fetched from the zip on demand
 ```
 
@@ -64,7 +64,7 @@ annotation anchors — but it is not on the path to the screen.
 ## Install
 
 ```
-pip install -e .          # requires Python >= 3.10, lxml, Pillow
+pip install -e .          # requires Python >= 3.10 and lxml
 pip install -e '.[test]'  # adds pytest
 ```
 
@@ -88,8 +88,8 @@ pip install -e '.[test]'  # adds pytest
   what is present.
 - **Parse, don't judge.** `<script>`, `<nav>`, `<table>` and MathML are
   reported as what they are. Sanitising for display is the consumer's call.
-- **Derived, never persisted.** `plain_text` and image dimensions are computed
-  and memoized. No pickle, no SQLite, no cache files.
+- **Derived, never persisted.** `plain_text` is computed and memoized. No
+  pickle, no SQLite, no cache files.
 
 ## Tests
 
@@ -118,7 +118,7 @@ entries) exercises paths the synthetic fixtures missed and found three bugs:
 - `opf:file-as` was read unqualified, so `Creator.file_as` was always `None`
 
 Measured on that book: `open()` median **0.48 ms**, 1,890 blocks, 33 images all
-resolving with dimensions, 72,629 words, zero uncaught exceptions. It has no
+resolving, 72,629 words, zero uncaught exceptions. It has no
 `h1`–`h6` at all (calibre output: `p`/`span` only), so its block kinds are
 `paragraph` and `figure` only — correct for that book, not a parser gap.
 

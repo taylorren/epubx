@@ -6,7 +6,6 @@ are the floor beneath it, so the suite passes in CI with no books present.
 
 from __future__ import annotations
 
-import io
 import zipfile
 
 CONTAINER = """<?xml version="1.0"?>
@@ -18,22 +17,11 @@ CONTAINER = """<?xml version="1.0"?>
 </container>
 """
 
-
-def _png(width: int, height: int) -> bytes:
-    """A real PNG of the given size, so Pillow reads its header."""
-    from PIL import Image
-
-    buf = io.BytesIO()
-    Image.new("RGB", (width, height), (255, 255, 255)).save(buf, "PNG")
-    return buf.getvalue()
-
-
-def _jpeg(width: int, height: int) -> bytes:
-    from PIL import Image
-
-    buf = io.BytesIO()
-    Image.new("RGB", (width, height), (10, 20, 30)).save(buf, "JPEG")
-    return buf.getvalue()
+# Stand-in image bytes. Nothing decodes them any more — epubx measures nothing,
+# and the renderer gets the book's real files straight from the archive — but
+# the magic numbers are real, so a test can still tell a JPEG from a PNG.
+JPEG = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00" + b"\x00" * 16
+PNG = b"\x89PNG\r\n\x1a\n" + b"\x00\x00\x00\rIHDR" + b"\x00" * 24
 
 
 OPF_TEMPLATE = """<?xml version="1.0" encoding="utf-8"?>
@@ -253,8 +241,8 @@ def write_epub(path, *, with_ncx: bool = True, with_nav: bool = True,
         "OEBPS/ch1.xhtml": CHAPTER_1,
         "OEBPS/text/ch2.xhtml": CHAPTER_2,
         "OEBPS/svgcover.xhtml": SVG_COVER,
-        "OEBPS/img/cover.jpg": _jpeg(640, 480),
-        "OEBPS/img/plate one.png": _png(120, 90),
+        "OEBPS/img/cover.jpg": JPEG,
+        "OEBPS/img/plate one.png": PNG,
     }
     if with_nav:
         files["OEBPS/nav.xhtml"] = NAV
@@ -324,7 +312,7 @@ def write_scan_epub(path, *, pages: int = 6, drm: bool = False,
             is_text = text_every is not None and i % text_every == 0
             doc = text_doc if is_text else image_doc
             zf.writestr(f"OEBPS/p{i}.xhtml", doc.format(i=i))
-            zf.writestr(f"OEBPS/img/p{i}.jpg", _jpeg(600, 800))
+            zf.writestr(f"OEBPS/img/p{i}.jpg", JPEG)
         if drm:
             zf.writestr("META-INF/encryption.xml", DRM_ENCRYPTION)
     return path

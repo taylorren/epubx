@@ -15,7 +15,6 @@ from __future__ import annotations
 import re
 
 from .hrefs import normalize_href, split_fragment
-from .images import resolve_dimensions
 from .model import (
     DEFINITION_LIST,
     FIGURE,
@@ -486,7 +485,11 @@ class _Builder:
     # -- images ----------------------------------------------------------
 
     def _images_of(self, img_elements) -> tuple[Image, ...]:
-        """Resolve `<img src>` to zip members, with coalesced dimensions."""
+        """Resolve `<img src>` to zip members.
+
+        No size is measured: the renderer sizes images from the book's own
+        attributes while rendering the same XHTML.
+        """
         images: list[Image] = []
         for img in img_elements:
             src = (img.get("src") or img.get("{http://www.w3.org/1999/xlink}href")
@@ -496,12 +499,8 @@ class _Builder:
             path = normalize_href(src, self.base)
             if not path or not self.book.has(path):
                 continue  # external or dangling: not a member of this archive
-            width, height = resolve_dimensions(
-                self.book, path, img.get("width"), img.get("height")
-            )
             images.append(Image(path=path, media_type=self._media_type_for(path),
-                                alt=img.get("alt"), width=width, height=height,
-                                _book=self.book))
+                                alt=img.get("alt"), _book=self.book))
         return tuple(images)
 
     def _svg_images(self, element) -> tuple[Image, ...]:
@@ -526,11 +525,8 @@ class _Builder:
             path = normalize_href(src, self.base)
             if not path or not self.book.has(path):
                 continue
-            width, height = resolve_dimensions(
-                self.book, path, node.get("width"), node.get("height")
-            )
             found.append(Image(path=path, media_type=self._media_type_for(path),
-                               width=width, height=height, _book=self.book))
+                               _book=self.book))
         return tuple(found)
 
     def _media_type_for(self, path: str) -> str | None:

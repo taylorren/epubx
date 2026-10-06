@@ -16,7 +16,6 @@ from typing import Iterator
 from urllib.parse import unquote
 
 from .hrefs import normalize_href
-from .images import resolve_dimensions
 from .model import Chapter, Creator, Image, Metadata, Resource, TocNode
 from .xmlutil import local_name, parse_xml
 
@@ -522,9 +521,8 @@ class Book:
         """
         for entry in self._cover_candidates():
             if entry["href"] and self._is_image(entry) and self.has(entry["href"]):
-                width, height = resolve_dimensions(self, entry["href"], None, None)
                 return Image(path=entry["href"], media_type=entry["media_type"],
-                             width=width, height=height, _book=self)
+                             _book=self)
         return None
 
     def _cover_candidates(self):
@@ -562,9 +560,6 @@ class Book:
 
     def close(self) -> None:
         self._zf.close()
-        from . import images
-
-        images.clear_cache()
 
     def __enter__(self) -> "Book":
         return self

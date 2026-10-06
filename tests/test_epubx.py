@@ -233,13 +233,14 @@ def test_external_images_are_skipped(book):
     assert all("example.org" not in i.path for i in book.chapters[0].images)
 
 
-def test_dimensions_are_coalesced_declared_wins(book):
-    by_path = {i.path: i for i in book.chapters[0].images}
-    cover = by_path["OEBPS/img/cover.jpg"]
-    assert (cover.width, cover.height) == (640, 480)  # intrinsic from header
-    plate = by_path["OEBPS/img/plate one.png"]
-    assert plate.width == 40  # declared override
-    assert plate.height == 90  # intrinsic where none declared
+def test_images_carry_no_measured_size(book):
+    """Sizing is the renderer's job: the book's own attributes travel with the
+    XHTML, and epubx decodes no image formats to second-guess them."""
+    img = next(i for i in book.chapters[0].images if i.path.endswith("cover.jpg"))
+    assert not hasattr(img, "width")
+    assert not hasattr(img, "height")
+    assert img.media_type == "image/jpeg"  # what the OPF declares is kept
+    assert img.alt == "Cover"
 
 
 def test_image_metadata_and_lazy_bytes(book):
@@ -266,7 +267,6 @@ def test_cover_is_found_by_every_declared_convention(tmp_path, via):
         assert cover is not None
         assert cover.path == "OEBPS/img/cover.jpg"
         assert cover.media_type == "image/jpeg"
-        assert (cover.width, cover.height) == (640, 480)
         assert cover.read()[:2] == b"\xff\xd8"
 
 
@@ -309,7 +309,6 @@ def test_svg_wrapped_image_is_reported(book):
     assert len(images) == 1
     assert images[0].path == "OEBPS/img/cover.jpg"
     assert images[0].media_type == "image/jpeg"
-    assert (images[0].width, images[0].height) == (640, 480)
 
 
 def test_xlink_href_is_read_in_both_notations(book):

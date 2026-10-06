@@ -65,6 +65,12 @@ class _Builder:
         self._ordinal = 0
         self._by_dom_id: dict[str, str] = {}
         self._emitted: list[tuple] = []
+        # Elements whose own tail was already folded into a block's text by
+        # `text_of`. The walker emits loose text around blocks, and must not
+        # emit these tails a second time. Refs are held so `id()` stays valid
+        # (see `_emitted` above for why identity is kept this way).
+        self._tail_consumed: set[int] = set()
+        self._tail_refs: list = []
         self._pending_element = None
         self._pending_dom_id: str | None = None
         self.base = href  # relative hrefs resolve against this document
@@ -95,6 +101,18 @@ class _Builder:
         self._pending_element = element
         return self.make(kind, **kwargs)
 
+    def _text(self, element) -> str:
+        """`text_of`, recording that the element's own tail is now spoken for.
+
+        `text_of` reads an element's tail as well as its content, so a block
+        built from it already carries the prose that follows the element. The
+        walker emits loose text around blocks and consults this record so that
+        prose is never counted twice.
+        """
+        self._tail_consumed.add(id(element))
+        self._tail_refs.append(element)
+        return text_of(element)
+
     def sub(self, fn, *args, **kwargs) -> tuple[Block, ...]:
         """Build nested blocks *without* adding them to the flat sequence.
 
@@ -113,9 +131,38 @@ class _Builder:
     # -- walking ---------------------------------------------------------
 
     def walk(self, parent, in_footnote: bool = False) -> None:
+        """Visit children in order, keeping the loose text around them.
+
+        Text that owns no block lives in two places a child-only walk never
+        reads: the parent's own `.text`, before its first child, and each
+        child's `.tail`. Real books put whole paragraphs there. A chapter of
+        *On China* holds its lead-in prose in the div's own text beside a
+        nested div; a chapter of *Sheng Si Suo* holds 13,700 characters in
+        `<br/>` tails inside a div that also contains a list, and parsed to
+        185 characters (PITFALLS §1). A child whose tail `text_of` already
+        folded into its block is skipped, so nothing is counted twice.
+        """
+        self._loose_text(parent.text, in_footnote)
         for child in parent:
             if isinstance(getattr(child, "tag", None), str):
                 self.visit(child, in_footnote)
+                if id(child) in self._tail_consumed:
+                    continue  # its tail is already part of its own block
+            self._loose_text(getattr(child, "tail", None), in_footnote)
+
+    def _loose_text(self, text, in_footnote: bool) -> None:
+        """Prose sitting between blocks becomes a paragraph of its own.
+
+        Only whitespace is ignored: blank lines between elements are layout,
+        not content, and emitting them would add empty blocks everywhere.
+        """
+        if not text:
+            return
+        collapsed = " ".join(text.split())
+        if not collapsed:
+            return
+        attributes = {"footnote": True} if in_footnote else {}
+        self.make(PARAGRAPH, text=collapsed, attributes=attributes)
 
     def visit(self, element, in_footnote: bool = False) -> None:
         tag = element.tag.lower()
@@ -125,7 +172,7 @@ class _Builder:
             self.emit(element, PAGE_BREAK)
             return
         if tag in HEADING_TAGS:
-            self.emit(element, HEADING, text=text_of(element) or None,
+            self.emit(element, HEADING, text=self._text(element) or None,
                       attributes={"level": int(tag[1])})
             return
         if tag == "img":
@@ -135,14 +182,14 @@ class _Builder:
             self._paragraph(element, in_footnote)
             return
         if tag in QUOTE_TAGS:
-            self.emit(element, QUOTE, text=text_of(element) or None,
+            self.emit(element, QUOTE, text=self._text(element) or None,
                       images=self._images_of(element.iter("img")))
             return
         if tag in PREFORMATTED_TAGS:
-            self.emit(element, PREFORMATTED, text=text_of(element) or None)
+            self.emit(element, PREFORMATTED, text=self._text(element) or None)
             return
         if tag in MATH_TAGS or "mathml" in types:
-            self.emit(element, MATH, text=text_of(element) or None,
+            self.emit(element, MATH, text=self._text(element) or None,
                       attributes=_math_attrs(element))
             return
         if tag == "table":
@@ -170,7 +217,7 @@ class _Builder:
             return
         if tag in ("script", "style"):
             # Parse, don't judge: reported, with its text, as its own block.
-            self.emit(element, PARAGRAPH, text=text_of(element) or None,
+            self.emit(element, PARAGRAPH, text=self._text(element) or None,
                       attributes={"element": tag})
             return
         if tag in CONTAINER_TAGS:
@@ -244,11 +291,10 @@ class _Builder:
             if self._is_footnote_ref(anchor):
                 self._footnote_ref(anchor)
 
-    @staticmethod
-    def _text_excluding(element, exclude) -> str | None:
+    def _text_excluding(self, element, exclude) -> str | None:
         """The paragraph's text, minus any inline math it contains."""
         if not exclude:
-            return text_of(element) or None
+            return self._text(element) or None
         skip = {id(node) for math in exclude for node in math.iter()}
         parts = [
             node.text for node in element.iter()
@@ -276,7 +322,7 @@ class _Builder:
         attributes = {"href": href}
         if frag:
             attributes["fragment"] = frag
-        self.emit(element, FOOTNOTE_REF, text=text_of(element) or None,
+        self.emit(element, FOOTNOTE_REF, text=self._text(element) or None,
                   attributes=attributes)
 
     def _resolve_footnotes(self, blocks) -> None:
@@ -352,7 +398,7 @@ class _Builder:
             nested = self.sub(self._list, li, in_footnote) if self._has_list(li) else ()
             self._pending_dom_id = li.get("id")
             self._pending_element = li
-            self.make(LIST, text=text_of(li) or None, items=nested,
+            self.make(LIST, text=self._text(li) or None, items=nested,
                       attributes={"element": "li"})
 
     @staticmethod
@@ -374,7 +420,7 @@ class _Builder:
                 continue
             tag = child.tag.lower()
             if tag == "dt":
-                text = text_of(child)
+                text = self._text(child)
                 term = f"{term} {text}" if term else text
             elif tag == "dd":
                 # `make` rather than `emit`: the dd's own block must register as
@@ -382,7 +428,7 @@ class _Builder:
                 # resolves to the definition's text and not to the whole list.
                 self._pending_dom_id = child.get("id")
                 self._pending_element = child
-                self.make(DEFINITION_LIST, text=text_of(child) or None,
+                self.make(DEFINITION_LIST, text=self._text(child) or None,
                           attributes={"term": term, "glossdef": True})
                 term = ""
 
@@ -412,7 +458,7 @@ class _Builder:
     def _cell(self, cell) -> Block:
         self._pending_dom_id = cell.get("id")
         self._pending_element = cell
-        return self.make(PARAGRAPH, text=text_of(cell) or None,
+        return self.make(PARAGRAPH, text=self._text(cell) or None,
                          images=self._images_of(cell.iter("img")),
                          attributes={"element": cell.tag.lower()})
 

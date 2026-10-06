@@ -328,3 +328,33 @@ def write_scan_epub(path, *, pages: int = 6, drm: bool = False,
         if drm:
             zf.writestr("META-INF/encryption.xml", DRM_ENCRYPTION)
     return path
+
+
+def write_chapter_epub(path, chapter_html, *, href: str = "chapter.xhtml"):
+    """A one-chapter book whose content document is exactly `chapter_html`.
+
+    Used to pin the shapes real books put *loose prose* in: a container's own
+    text beside a nested block (*On China*), and `<br/>` tails inside a div
+    that also holds a list (*Sheng Si Suo*). See PITFALLS §1.
+    """
+    opf = f"""<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="id">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>Loose Text</dc:title><dc:language>en</dc:language>
+    <dc:identifier id="id">urn:uuid:loose-text</dc:identifier>
+  </metadata>
+  <manifest>
+    <item id="c1" href="{href}" media-type="application/xhtml+xml"/>
+  </manifest>
+  <spine>
+    <itemref idref="c1"/>
+  </spine>
+</package>
+"""
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(zipfile.ZipInfo("mimetype"), "application/epub+zip",
+                    compress_type=zipfile.ZIP_STORED)
+        zf.writestr("META-INF/container.xml", CONTAINER)
+        zf.writestr("OEBPS/content.opf", opf)
+        zf.writestr(f"OEBPS/{href}", chapter_html)
+    return path

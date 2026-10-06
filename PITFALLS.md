@@ -235,6 +235,39 @@ Normalise against the **referring document's** directory, not the OPF's, and
 percent-decode once. Absolute URLs are not zip members and must be skipped —
 silently, since a book referencing a CDN image is still a readable book.
 
+## 16. A walked container drops the text that owns no block
+
+The §1 fix handles a `<div>` that holds *only* loose prose. A `<div>` that
+holds loose prose **and** a real block is a different animal, and it cost real
+books their text twice over.
+
+`_holds_bare_text` answers "is this wrapper prose, or structure?". A block
+child makes the answer "structure" — correctly, since the `<ul>` must stay a
+list — and the wrapper is then *walked*. But the walk visited child elements
+only, and two kinds of text live in no element at all:
+
+- the container's own `.text`, before its first child;
+- every child's `.tail`.
+
+*On China* keeps a section's lead-in prose in the div's own text beside a
+nested `<div>`: **67,104 characters dropped, 6% of the book**, while Calibre
+shows every word. A chapter of *Sheng Si Suo* keeps its paragraphs in the
+tails of `<br/>` elements inside a div that also holds a `<ul>`: **13,756
+characters in, 185 out** — and that book's other eight chapters were fine,
+which is exactly why it went unnoticed for so long. Both are §1's rule in a
+new disguise: a block walker that finds no block has not found no content.
+
+The fix: `walk` emits the container's own text and every child's tail as
+paragraphs — unless that child's tail is already inside the child's own
+block, which `text_of` arranges by reading an element's tail along with its
+content. `_text()` records that consumption; without the record every
+paragraph's trailing text would be emitted a second time.
+
+Measured after: the four chapters recover 13,811 / 5,713 / 6,348 / 10,385
+characters, *On China*'s gap goes to −1%, and the corpus gains 128,052
+characters across 1,663 new paragraphs with **no other block kind changed by
+one**. No fixture held the shape; the audit found it, and Calibre settled it.
+
 ---
 
 ## Known limitations (not bugs)

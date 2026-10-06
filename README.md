@@ -130,6 +130,13 @@ running against real books:
   `<p>` anywhere — and the text lives in the *tails* between the `<br/>`
   elements, not in the div's own `.text`. ~130 readable books parsed to ~465
   characters each; they now yield their full text.
+- **The same div, once it also held a block.** Loose prose beside a real block
+  (a `<ul>`, a nested `<div>`) was dropped again, because the wrapper then
+  counts as structure and the walk read only child elements. *On China* lost
+  67,104 characters (6% of the book) from divs' own text; *Sheng Si Suo* lost
+  13,571 of a chapter's 13,756 characters to `<br/>` tails. Four chapters went
+  185 / 165 / 50 / 230 characters → 13,811 / 5,713 / 6,348 / 10,385. Calibre
+  showed every word throughout; only the parser could not see them.
 - **`<meta charset>` absent + lxml's HTML parser** reads UTF-8 as latin-1:
   "What's" became "Whatâ\x80\x99s". Re-encoding the bytes is not enough — the
   parser needs `encoding="utf-8"` passed explicitly.

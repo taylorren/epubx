@@ -2,6 +2,7 @@
 *.egg-info/
 __pycache__/
 *.pyc
+build/
 
 # Books are not source; the corpus lives at $EPUBX_CORPUS.
 *.epub

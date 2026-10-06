@@ -149,6 +149,25 @@ class TocNode:
 
 
 @dataclass(frozen=True)
+class Footnote:
+    """One footnote edge, normalized: a marker and the note it opens.
+
+    `note_text` is extracted here so a reader can show a footnote without
+    fetching or re-parsing anything. A note spanning several paragraphs
+    reports the paragraph its anchor owns. `target_id` is None for markers
+    the graph could not resolve — the book's own link still serves them.
+    """
+
+    block_id: str                        # the marker's block, e.g. 'c0003/b0012'
+    text: str | None                     # the marker as printed, e.g. '12'
+    href: str                            # the href exactly as the book wrote it
+    target_id: str | None = None         # the block holding the note
+    target_chapter: int | None = None    # the chapter holding that block
+    target_dom_ids: tuple[str, ...] = () # DOM ids on the note block
+    note_text: str | None = None         # the note's text
+
+
+@dataclass(frozen=True)
 class Chapter:
     """A spine document. Content is parsed on first access, not on open()."""
 
@@ -200,3 +219,38 @@ class Chapter:
     def resolve(self, target_id: str) -> Block | None:
         """Resolve a footnote target id to its block, within this chapter."""
         return self.block_by_id(target_id)
+
+    @cached_property
+    def footnotes(self) -> tuple[Footnote, ...]:
+        """Every footnote marker in this chapter, normalized.
+
+        The graph's edge list in document order: each marker with the block
+        it resolves to, the chapter holding it, and the note's text already
+        extracted. A marker the graph could not resolve stays listed with
+        `target_id` None — the book's own link still serves it.
+        """
+        edges: list[Footnote] = []
+        for block in self.blocks:
+            for node in block:  # Block.__iter__ walks nested blocks too
+                if node.kind != FOOTNOTE_REF:
+                    continue
+                target_id = node.attributes.get("target_id")
+                target_chapter: int | None = None
+                dom_ids: tuple[str, ...] = ()
+                note_text: str | None = None
+                if target_id and "/" in target_id:
+                    target_chapter = int(target_id[1:target_id.index("/")])
+                    target = self._book.chapters[target_chapter].block_by_id(target_id)
+                    if target is not None:
+                        dom_ids = tuple(target.attributes.get("dom_ids") or ())
+                        note_text = target.plain_text or None
+                edges.append(Footnote(
+                    block_id=node.id,
+                    text=node.text,
+                    href=node.attributes.get("href") or "",
+                    target_id=target_id,
+                    target_chapter=target_chapter,
+                    target_dom_ids=dom_ids,
+                    note_text=note_text,
+                ))
+        return tuple(edges)

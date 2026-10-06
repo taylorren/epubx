@@ -41,6 +41,10 @@ CONTAINER_TAGS = {"aside", "section", "nav", "header", "footer", "article", "div
 PAGEBREAK_MARKERS = {"pagebreak", "page-break"}
 # 1,199 footnote markers against 12,737 hrefs in the corpus.
 FOOTNOTE_CLASS = re.compile(r"(^|[-_ ])(fn|footnote|noteref|endnote)([-_ ]|$)")
+# Word and Calibre pipelines name footnotes with compact ids that carry no
+# separator and no semantics: fn674, _ftn5, note12, endnote-2. The token
+# list mirrors FOOTNOTE_CLASS; the compact forms are what those exports emit.
+COMPACT_FRAGMENT = re.compile(r"^(?:_?ftn|fn|note|endnote|footnote)[-_.]?\d+$")
 
 MEDIA_TYPES_BY_SUFFIX = {
     "jpg": "image/jpeg", "jpeg": "image/jpeg", "jpe": "image/jpeg",
@@ -306,13 +310,24 @@ class _Builder:
 
     @staticmethod
     def _is_footnote_ref(element) -> bool:
-        """A link out to a note: `epub:type="noteref"`, a class, or href shape."""
+        """A link out to a note: `epub:type="noteref"`, a class, or href shape.
+
+        The href shape covers both the separator-style fragments real books
+        emit (`fn_1`, `note-2`) and the compact ids of Word/Calibre pipelines
+        (`fn674`, `_ftn5`, `note12`) — the fragment is compared after
+        decoding, whatever file the href points into.
+        """
         if "noteref" in set(epub_type(element)):
             return True
         if FOOTNOTE_CLASS.search(element.get("class") or ""):
             return True
         href = element.get("href") or ""
-        return href.startswith("#") and bool(FOOTNOTE_CLASS.search(href[1:]))
+        if not href:
+            return False
+        _, fragment = split_fragment(href)
+        if not fragment:
+            return False
+        return bool(FOOTNOTE_CLASS.search(fragment) or COMPACT_FRAGMENT.match(fragment))
 
     def _footnote_ref(self, element) -> None:
         """A noteref marker: a graph edge, resolved to `target_id`."""
@@ -321,8 +336,10 @@ class _Builder:
         attributes = {"href": href}
         if frag:
             attributes["fragment"] = frag
-        self.emit(element, FOOTNOTE_REF, text=self._text(element) or None,
-                  attributes=attributes)
+        # The marker's printed text is the anchor's own content — not the
+        # prose that follows it, which text_of folds in from the tail.
+        text = " ".join("".join(element.itertext()).split()) or None
+        self.emit(element, FOOTNOTE_REF, text=text, attributes=attributes)
 
     def _resolve_footnotes(self, blocks) -> None:
         """Turn footnote fragments into block ids — the graph edge.

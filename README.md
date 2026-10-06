@@ -21,6 +21,8 @@ ch = book.chapters[0]                # parses this chapter now
 ch.blocks                           # tuple[Block, ...] — ordered content
 ch.images                           # resolved image references
 ch.plain_text                       # derived, memoized
+ch.footnotes                        # footnote edges, normalized: marker →
+                                    #   target block + the note's text
 
 b = ch.blocks[3]
 b.id            # "c0000/b0003" — stable across re-parses

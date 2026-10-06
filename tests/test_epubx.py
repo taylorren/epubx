@@ -18,7 +18,7 @@ from epubx import open_book  # noqa: E402
 from epubx.hrefs import normalize_href  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from fixtures import write_epub, write_scan_epub  # noqa: E402
+from fixtures import write_calibre_epub, write_chapter_epub, write_epub, write_scan_epub  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -433,3 +433,50 @@ def test_encrypted_key_is_named_drm(tmp_path):
     with open_book(path) as b:
         assert "drm" in b.unsupported.lower()
         assert "EncryptedKey" in b.unsupported
+
+
+# -- compact-id recognition (Word/Calibre exports) ------------------------
+
+def test_compact_id_fragments_are_classified_and_resolved(tmp_path):
+    """fn900/_ftn5 carry no separator and no semantics, yet are markers."""
+    path = write_calibre_epub(tmp_path / "calibre.epub")
+    with open_book(path) as b:
+        markers = [node for block in b.chapters[0].blocks for node in block
+                   if node.kind == "footnote_ref"]
+        assert [m.attributes["href"] for m in markers] == [
+            "cal.xhtml#fn900", "cal.xhtml#_ftn5",
+        ]
+        assert all(m.attributes.get("target_id") for m in markers), \
+            "both markers resolve through the same-document graph"
+
+
+def test_chapter_footnotes_normalizes_edges(book):
+    """The edge list: marker, resolved target block, and the note's text."""
+    edges = book.chapters[0].footnotes
+    assert [e.href for e in edges] == ["#fn1", "#fn2", "#fn3"]
+    first = edges[0]
+    assert first.block_id.startswith("c0000/b")
+    assert first.target_chapter == 0
+    assert first.target_dom_ids == ("fn1",)
+    assert "definition" in first.note_text
+
+
+def test_chapter_footnotes_on_the_calibre_fixture(tmp_path):
+    path = write_calibre_epub(tmp_path / "calibre.epub")
+    with open_book(path) as b:
+        edges = b.chapters[0].footnotes
+        assert len(edges) == 2
+        assert edges[0].text == "1"
+        assert "December 1761" in edges[0].note_text
+        assert edges[1].note_text and "Word-style" in edges[1].note_text
+
+
+def test_note_backlinks_are_not_markers(tmp_path):
+    """The note's own backlink (fragment fnrefN) stays a native link."""
+    path = write_calibre_epub(tmp_path / "calibre.epub")
+    with open_book(path) as b:
+        hrefs = [node.attributes["href"]
+                 for block in b.chapters[0].blocks for node in block
+                 if node.kind == "footnote_ref"]
+        assert "cal.xhtml#fnref900" not in hrefs
+        assert "cal.xhtml#ftnref5" not in hrefs

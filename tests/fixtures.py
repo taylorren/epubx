@@ -346,3 +346,26 @@ def write_chapter_epub(path, chapter_html, *, href: str = "chapter.xhtml"):
         zf.writestr("OEBPS/content.opf", opf)
         zf.writestr(f"OEBPS/{href}", chapter_html)
     return path
+
+
+# The Word/Calibre convention: markers and notes named with compact ids
+# carrying no separator and no semantics, the marker href re-naming its own
+# file. Both shapes appear in real exports; the classifier must recognize
+# the markers and resolve them through the same-document graph, while the
+# notes' own backlinks (fragment fnrefN) stay native links.
+CALIBRE_CHAPTER = """<?xml version="1.0" encoding="utf-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head><title>Calibre Notes</title></head>
+<body>
+  <p>Body text carries a marker<a class="calibre4" href="cal.xhtml#fn900" id="fnref900">1</a> inline, and a second marker<a href="cal.xhtml#_ftn5" id="ftnref5">2</a> here.</p>
+  <hr class="calibre13"/>
+  <p class="indent" id="fn900"><sup><a href="cal.xhtml#fnref900">1</a></sup>The first Calibre note, published December 1761.</p>
+  <p class="indent" id="_ftn5"><sup><a href="cal.xhtml#ftnref5">2</a></sup>The second note, Word-style naming.</p>
+</body>
+</html>
+"""
+
+
+def write_calibre_epub(path) -> Path:
+    """A one-chapter book whose footnotes follow the Word/Calibre id style."""
+    return write_chapter_epub(path, CALIBRE_CHAPTER, href="cal.xhtml")

@@ -86,3 +86,24 @@ def test_every_deferred_case_has_a_named_reason():
         with epubx.open_book(path) as book:
             if book.unsupported is not None:
                 assert isinstance(book.unsupported, str) and book.unsupported
+
+
+def test_footnote_edges_resolve_to_real_blocks():
+    """Corpus guard for the compact-id recognition (fn674, _ftn5 — Word and
+    Calibre exports): a resolved edge must point at a block the graph owns,
+    so every widened edge stays honest across the corpus."""
+    dangling = []
+    for path in corpus_books():
+        with epubx.open_book(path) as book:
+            if book.unsupported is not None:
+                continue
+            for chapter in book.chapters:
+                for note in chapter.footnotes:
+                    if note.target_id is None:
+                        continue
+                    target = book.chapters[note.target_chapter].block_by_id(note.target_id)
+                    if target is None:
+                        dangling.append(f"{path.name}: {note.block_id} -> {note.target_id}")
+    assert not dangling, (
+        f"{len(dangling)} dangling footnote edges: " + "; ".join(dangling[:10])
+    )

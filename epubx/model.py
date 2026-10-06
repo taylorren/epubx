@@ -73,6 +73,26 @@ class Image:
 
 
 @dataclass(frozen=True)
+class Resource:
+    """A file inside the EPUB, served exactly as the book shipped it.
+
+    Rendering is the renderer's job. epubx hands over the book's own bytes at
+    the book's own paths, so the book's relative links — stylesheets, fonts,
+    images, footnotes — resolve in a browser with nothing rewritten.
+    """
+
+    path: str  # zip-relative, e.g. 'OEBPS/Text/ch1.xhtml'
+    media_type: str = "application/octet-stream"
+    _book: "object" = field(repr=False, compare=False, default=None)
+
+    def read(self) -> bytes:
+        """The member's bytes, fetched from the zip on demand."""
+        if self._book is None:
+            raise ValueError(f"resource is not attached to a book: {self.path}")
+        return self._book.member(self.path)
+
+
+@dataclass(frozen=True)
 class Block:
     """One unit of ordered content.
 

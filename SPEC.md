@@ -56,6 +56,10 @@ book.chapters      # lazy Sequence[Chapter], spine order
 book.toc           # TocNode tree — nav if present, NCX if present, else spine
 book.unsupported   # None | reason string
 
+book.spine         # ('OEBPS/Text/ch1.xhtml', ...) — reading order
+book.resource(path)  # Resource(path, media_type).read() — the book's own bytes
+book.resources()     # every file a renderer may need
+
 ch = book.chapters[0]                # parses this chapter now
 ch.blocks                           # tuple[Block, ...] — ordered content
 ch.images                           # resolved image references
@@ -95,6 +99,15 @@ declared value is the override.
 
 Intrinsic dimensions are header-only reads (Pillow for raster; SVG via `viewBox`
 attributes). The zip is never extracted to disk.
+
+### Serving
+
+Rendering is not this library's job. `book.spine`, `book.resource(path)` and
+`book.resources()` hand the renderer the book's own files at the book's own
+paths — bytes, with a `media_type` for the Content-Type — so the book's
+relative links (CSS, fonts, images, footnotes) resolve in a browser with
+nothing rewritten. The parsed content model below is for consumers that need
+*text* rather than pixels; it is not on the path to the screen.
 
 ---
 

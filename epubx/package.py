@@ -13,10 +13,11 @@ import re
 import zipfile
 from dataclasses import replace
 from typing import Iterator
+from urllib.parse import unquote
 
 from .hrefs import normalize_href
 from .images import resolve_dimensions
-from .model import Chapter, Creator, Image, Metadata, TocNode
+from .model import Chapter, Creator, Image, Metadata, Resource, TocNode
 from .xmlutil import local_name, parse_xml
 
 CONTAINER_PATH = "META-INF/container.xml"
@@ -25,6 +26,37 @@ OPF_NS = "http://www.idpf.org/2007/opf"
 IMAGE_SUFFIXES = frozenset(
     {"jpg", "jpeg", "jpe", "png", "gif", "svg", "webp", "tif", "tiff", "bmp"}
 )
+# Content types for serving the book to a renderer. The OPF's declared
+# `media-type` wins wherever it has one; this covers the files it does not name
+# (and the handful of publishers who omit it). Anything still unknown is served
+# as `application/octet-stream` rather than guessed at.
+MEDIA_TYPES_BY_SUFFIX = {
+    "xhtml": "application/xhtml+xml",
+    "html": "text/html",
+    "htm": "text/html",
+    "css": "text/css",
+    "js": "text/javascript",
+    "opf": "application/oebps-package+xml",
+    "ncx": "application/x-dtbncx+xml",
+    "xml": "application/xml",
+    "txt": "text/plain",
+    "json": "application/json",
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "jpe": "image/jpeg",
+    "png": "image/png",
+    "gif": "image/gif",
+    "svg": "image/svg+xml",
+    "webp": "image/webp",
+    "tif": "image/tiff",
+    "tiff": "image/tiff",
+    "bmp": "image/bmp",
+    "ttf": "font/ttf",
+    "otf": "font/otf",
+    "ttc": "font/collection",
+    "woff": "font/woff",
+    "woff2": "font/woff2",
+}
 # Matches id="..." / id='...' in a raw content document.
 _ID_ATTR = re.compile(rb"""\bid\s*=\s*["']([^"']+)["']""")
 
@@ -378,6 +410,53 @@ class Book:
     def chapters(self) -> tuple[Chapter, ...]:
         """Lazy chapters in spine order. The tuple itself is eager; content is not."""
         return tuple(self._spine)
+
+    # -- serving ---------------------------------------------------------
+    #
+    # A renderer needs the book's own files, not a second model of them. These
+    # hand over the bytes at their own paths so that the book's relative links
+    # — stylesheets, fonts, images, footnotes — resolve in a browser with
+    # nothing rewritten.
+
+    @property
+    def spine(self) -> tuple[str, ...]:
+        """The reading order: content document paths, exactly as the OPF lists them."""
+        return tuple(chapter.href for chapter in self._spine)
+
+    def resource(self, path: str) -> Resource | None:
+        """One file of the book, or None when the archive has no such member.
+
+        `path` is the zip-relative path the book's own links use. A request URL
+        is normalised rather than reported missing: a leading `/`, `./`,
+        backslashes and percent-encoding are all resolved first, so
+        `/OEBPS/img/plate%20one.png` finds `OEBPS/img/plate one.png`.
+        """
+        # `normalize_href` decodes relative hrefs but leaves an absolute
+        # in-book path (`/OEBPS/...`) encoded, so decode once more here.
+        name = unquote(normalize_href(path))
+        if not name or not self.has(name):
+            return None
+        return Resource(path=name, media_type=self._media_type_of(name), _book=self)
+
+    def resources(self) -> Iterator[Resource]:
+        """Every file a renderer may need, in archive order.
+
+        The container's own plumbing — `mimetype` and `META-INF/` — is left
+        out: no content document references it, so serving it is noise. Bytes
+        are not read here; `Resource.read()` fetches them on demand.
+        """
+        for name in self._zf.namelist():
+            if name.endswith("/") or name == "mimetype" or name.startswith("META-INF/"):
+                continue
+            yield Resource(path=name, media_type=self._media_type_of(name), _book=self)
+
+    def _media_type_of(self, path: str) -> str:
+        """The OPF's declared media type where it has one, else the suffix."""
+        for entry in self._manifest.values():
+            if entry["href"] == path and entry["media_type"]:
+                return entry["media_type"]
+        suffix = path.rsplit(".", 1)[-1].lower() if "." in path else ""
+        return MEDIA_TYPES_BY_SUFFIX.get(suffix, "application/octet-stream")
 
     def find_element_id(self, fragment: str) -> str | None:
         """Every content document that declares `id="fragment"`.

@@ -14,6 +14,7 @@ from .model import (
     Creator,
     Image,
     Metadata,
+    Resource,
     TocNode,
 )
 from .package import Book, EpubError, open_book
@@ -29,6 +30,7 @@ __all__ = [
     "Creator",
     "Image",
     "Metadata",
+    "Resource",
     "TocNode",
     "__version__",
 ]

@@ -34,6 +34,33 @@ img.path, img.media_type, img.alt, img.width, img.height
 data = img.read()   # bytes, fetched from the zip on demand
 ```
 
+## Serving a book to a renderer
+
+An EPUB is a zip of XHTML and its resources, and a browser already knows how to
+render that. So epubx does not re-model the book: it hands over the book's own
+files, at the book's own paths, in reading order.
+
+```python
+book.spine                              # ('OEBPS/Text/ch1.xhtml', ...)
+book.resource("OEBPS/Text/ch1.xhtml")   # Resource | None
+    .media_type                         # 'application/xhtml+xml' — for Content-Type
+    .read()                             # the bytes, straight from the zip
+
+for res in book.resources():            # every file a renderer may need
+    serve(res.path, res.read(), content_type=res.media_type)
+```
+
+Serve those paths one-to-one — a custom scheme, blob URLs, or a local HTTP
+route — and the book's own relative links (CSS, fonts, images, footnotes)
+resolve in the browser with nothing rewritten. `resource()` also accepts the
+request URL the browser asked for (`/OEBPS/img/plate%20one.png`), so
+percent-encoding does not become a 404. `mimetype` and `META-INF/` are left
+out of `resources()`: no content document references them.
+
+The parsed content above (`ch.blocks`, `ch.plain_text`, footnote edges) remains
+available for anything that needs text rather than pixels — search, TTS,
+annotation anchors — but it is not on the path to the screen.
+
 ## Install
 
 ```

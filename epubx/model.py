@@ -178,8 +178,11 @@ class Chapter:
 
     @cached_property
     def blocks(self) -> tuple[Block, ...]:
-        from .content import parse_document
+        from .content import parse_document, parse_stash
 
+        stashed = parse_stash.get((id(self._book), self.index))
+        if stashed is not None:
+            return stashed  # reentrant access during footnote resolution
         return parse_document(self._book, self.index, self.href)
 
     @cached_property

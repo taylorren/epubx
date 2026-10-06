@@ -656,7 +656,15 @@ def _math_attrs(element) -> dict:
 
 
 def parse_document(book, chapter_index: int, href: str) -> tuple[Block, ...]:
-    """Parse one content document into its ordered block tuple."""
+    """Parse one content document into its ordered block tuple.
+
+    The built blocks are stashed before footnote resolution runs: resolving
+    a cross-document marker parses the target chapter, and two chapters
+    whose notes reference each other would otherwise re-enter each other's
+    parse until the stack gives up (four corpus books did exactly that).
+    A reentrant `Chapter.blocks` access is served from the stash, so every
+    chapter parses once no matter how the references weave.
+    """
     root = book.read_parsed(href)
     if root is None:
         return ()
@@ -664,8 +672,19 @@ def parse_document(book, chapter_index: int, href: str) -> tuple[Block, ...]:
     builder.walk(root)
     _claim_stray_ids(builder, root)
     _sweep_unclaimed_refs(builder, root)
-    builder._resolve_footnotes(builder.blocks)
-    return tuple(builder.blocks)
+    blocks = tuple(builder.blocks)
+    stash_key = (id(book), chapter_index)
+    parse_stash[stash_key] = blocks
+    try:
+        builder._resolve_footnotes(builder.blocks)
+        return tuple(builder.blocks)
+    finally:
+        parse_stash.pop(stash_key, None)
+
+
+# Blocks built but not yet footnote-resolved, keyed by (id(book), index).
+# Lives only for the duration of one parse; see parse_document.
+parse_stash: dict = {}
 
 
 def _sweep_unclaimed_refs(builder: "_Builder", root) -> None:

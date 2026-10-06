@@ -76,6 +76,7 @@ class _Builder:
         self._tail_refs: list = []
         self._pending_element = None
         self._pending_dom_id: str | None = None
+        self._seen_refs: dict = {}  # (sourceline, href) -> element, see _footnote_ref
         self.base = href  # relative hrefs resolve against this document
 
     # -- emission --------------------------------------------------------
@@ -339,6 +340,11 @@ class _Builder:
         # The marker's printed text is the anchor's own content — not the
         # prose that follows it, which text_of folds in from the tail.
         text = " ".join("".join(element.itertext()).split()) or None
+        # Remember where this anchor was reported from: the completion sweep
+        # (_sweep_unclaimed_refs) must not report it a second time. lxml
+        # proxies recycle, so the key pairs the source position with the
+        # href and holds the element strongly.
+        self._seen_refs[(element.sourceline, href)] = element
         self.emit(element, FOOTNOTE_REF, text=text, attributes=attributes)
 
     def _resolve_footnotes(self, blocks) -> None:
@@ -657,8 +663,26 @@ def parse_document(book, chapter_index: int, href: str) -> tuple[Block, ...]:
     builder = _Builder(book, chapter_index, href)
     builder.walk(root)
     _claim_stray_ids(builder, root)
+    _sweep_unclaimed_refs(builder, root)
     builder._resolve_footnotes(builder.blocks)
     return tuple(builder.blocks)
+
+
+def _sweep_unclaimed_refs(builder: "_Builder", root) -> None:
+    """Report footnote markers that no block branch carried inline.
+
+    Paragraphs report the anchors inside them; headings, quotes, table
+    cells and captions have no such loop, and a marker hung on a chapter
+    title (edition notes, as in one real export) would otherwise vanish.
+    Swept markers join the end of the flat sequence: their position is the
+    document's, their internal order is the graph's own.
+    """
+    for element in root.iter("a"):
+        key = (element.sourceline, element.get("href") or "")
+        if key in builder._seen_refs:
+            continue
+        if _Builder._is_footnote_ref(element):
+            builder._footnote_ref(element)
 
 
 def _claim_stray_ids(builder, root) -> None:

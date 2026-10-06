@@ -270,6 +270,30 @@ one**. No fixture held the shape; the audit found it, and Calibre settled it.
 
 ---
 
+## 17. Resolving cross-document footnotes can re-enter the parser
+
+Resolving a marker whose note lives in another chapter walks that chapter's
+blocks — which parses it. Once compact-id recognition widened the graph
+(`fn674`, `_ftn5` — markers the old classifier never saw), two chapters whose
+notes reference each other re-entered each other's parse: A resolves → walks
+B → B resolves → walks A — and A's `blocks` cached_property was still
+mid-computation, so it *re-ran* instead of returning. Unbounded recursion.
+Four corpus books (Simon & Schuster-style exports) hit `RecursionError` the
+day the recognition shipped; the corpus suite caught all four in one run.
+
+Fix: `parse_document` stashes the built (pre-resolution) blocks keyed by
+book + chapter before resolution runs, and `Chapter.blocks` serves the stash
+to reentrant access. Resolution may nest, but every chapter parses exactly
+once, however the references weave. The stash is dropped when the parse
+completes, so nothing lingers.
+
+Lesson: widening a classifier widens the *graph* — the resolution order must
+be reentrancy-proof before the widening ships, not after. The corpus guard
+added alongside the recognition is what turned four crashes into one
+afternoon's fix.
+
+---
+
 ## Known limitations (not bugs)
 
 - **Vertical CJK layout** is named as deferred in SPEC.md and is **not

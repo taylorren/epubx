@@ -1,8 +1,11 @@
 """Corpus tests.
 
-The 506-book reference corpus lives at `EPUBX_CORPUS`, with a `manifest.toml`
-recording path, sha256, expected metadata and chapter counts, plus exclusion
-reasons. These tests skip cleanly when the corpus is absent, so CI works
+The reference corpus is a directory of EPUB files at `EPUBX_CORPUS` — a
+real-world Calibre library, approximately 300 books (the count drifts as
+the library changes; discover books by walking `*.epub`, do not rely on any
+particular number). There is no manifest: expected values come from the
+books themselves and from the expectations recorded in this file's
+assertions. These tests skip cleanly when the corpus is absent, so CI works
 without books present.
 """
 

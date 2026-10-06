@@ -205,6 +205,19 @@ reasons. Tests skip cleanly when the corpus is absent, so CI works without books
 Corpus-verified: navigation, metadata, spine, tables, footnotes, figures, lists,
 images.
 
+**Footnote normalization** — compact-id recognition (Word/Calibre exports:
+`fn674`, `_ftn5`, `note12`) and the normalized edge list `Chapter.footnotes`
+(marker → resolved target block + the note's text) — was verified against a
+301-book Calibre library (the project's `EPUBX_CORPUS`; the count drifts as
+the library changes, hence "approximately 300 books"): **7,905 footnote
+markers across 23 books, 7,900 resolved (99.9%)**. 5,890 of those markers
+(75% of the total) exist only through the compact-id recognition — six books
+gained ten or more markers each, one alone gained 3,916. Five markers are
+unresolved corpus-wide: 2 are the publisher typo recorded under Known
+limitations, 3 point at external web URLs. The same verification run caught
+a reentrant-parse defect in four books (PITFALLS 17) — the corpus doing its
+job.
+
 **Spec-derived only:** math — **0 occurrences across 506 books**. Hand-written
 synthetic MathML fixtures. This code path will be specification-correct and
 empirically unvalidated until a real math EPUB appears; recorded as such rather

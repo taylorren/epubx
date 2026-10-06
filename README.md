@@ -61,6 +61,19 @@ The parsed content above (`ch.blocks`, `ch.plain_text`, footnote edges) remains
 available for anything that needs text rather than pixels — search, TTS,
 annotation anchors — but it is not on the path to the screen.
 
+### Try it
+
+```
+python3 tools/serve.py "path/to/book.epub"     # then open http://127.0.0.1:8000/
+```
+
+A minimal reader for exactly this path: the book's own files served at their
+own paths, with a TOC, next/previous along the spine, the footnote edges epubx
+resolved, and the extracted text beside it for comparison. Rendering — and
+whatever the book's own links do — is the browser's. The iframe is sandboxed,
+so no script from a book can run. `--strict-types` serves the declared media
+types instead of `text/html` for XHTML.
+
 ## Install
 
 ```

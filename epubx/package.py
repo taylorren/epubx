@@ -107,7 +107,7 @@ class Book:
         self._checked_image_only = False
         # Font files scrambled to discourage extraction; not DRM, and the book
         # still reads. Empty when no such obfuscation is present.
-        self.obfuscated_fonts: tuple[str, ...] = ()
+        self._obfuscated_fonts: tuple[str, ...] = ()
 
         self._manifest: dict[str, dict] = {}
         self._spine: list[Chapter] = []
@@ -196,6 +196,10 @@ class Book:
             if reason is not None:
                 self._unsupported = reason
         return self._unsupported
+    @property
+    def obfuscated_fonts(self) -> tuple[str, ...]:
+        """Font files that are obfuscated (non‑DRM)."""
+        return self._obfuscated_fonts
 
     def _detect_image_only(self) -> str | None:
         """Name the image-only case, or None when the book carries real text.
@@ -289,7 +293,7 @@ class Book:
             )
             return
         # Fonts only: recorded, but the book is perfectly readable.
-        self.obfuscated_fonts = tuple(targets)
+        self._obfuscated_fonts = tuple(targets)
 
     @staticmethod
     def _opf_attr(element, name: str) -> str | None:
@@ -587,7 +591,7 @@ def _find_opf(zf: zipfile.ZipFile) -> str:
     raise EpubError("no rootfile in META-INF/container.xml")
 
 
-def open_book(path) -> Book:
+def open_book(path: str | os.PathLike) -> Book:
     """Open an EPUB file. Reads the central directory and the OPF only."""
     zf = zipfile.ZipFile(os.fspath(path))
     try:

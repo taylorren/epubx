@@ -31,6 +31,20 @@ from .model import (
     Image,
 )
 from .xmlutil import epub_type, text_of
+from dataclasses import replace
+from types import MappingProxyType
+
+def _freeze_block(block: Block) -> Block:
+    """Recursively freeze a Block's attributes and nested blocks.
+
+    Returns a new Block instance with ``attributes`` wrapped in an immutable
+    :class:`types.MappingProxyType`. Nested ``items`` and ``rows`` are also
+    frozen recursively.
+    """
+    new_items = tuple(_freeze_block(b) for b in block.items)
+    new_rows = tuple(tuple(_freeze_block(b) for b in row) for row in block.rows)
+    new_attrs = MappingProxyType(dict(block.attributes))
+    return replace(block, attributes=new_attrs, items=new_items, rows=new_rows)
 
 HEADING_TAGS = {"h1", "h2", "h3", "h4", "h5", "h6"}
 QUOTE_TAGS = {"blockquote", "q"}
@@ -677,7 +691,9 @@ def parse_document(book, chapter_index: int, href: str) -> tuple[Block, ...]:
     parse_stash[stash_key] = blocks
     try:
         builder._resolve_footnotes(builder.blocks)
-        return tuple(builder.blocks)
+        # Freeze attribute dicts to enforce immutability of Block after parsing.
+        frozen_blocks = tuple(_freeze_block(b) for b in builder.blocks)
+        return frozen_blocks
     finally:
         parse_stash.pop(stash_key, None)
 

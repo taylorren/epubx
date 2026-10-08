@@ -15,6 +15,7 @@ book.metadata      # Metadata(title, creators, language, identifier, ...)
 book.chapters      # lazy Sequence[Chapter], spine order
 book.toc           # TocNode tree — nav if present, NCX if present, else spine
 book.unsupported   # None | reason string
+book.obfuscated_fonts  # fonts scrambled to discourage extraction — not DRM
 book.cover         # Image | None — guide, meta or cover-image, whichever is declared
 
 ch = book.chapters[0]                # parses this chapter now
@@ -105,6 +106,9 @@ pip install -e '.[test]'  # adds pytest
   reported as what they are. Sanitising for display is the consumer's call.
 - **Derived, never persisted.** `plain_text` is computed and memoized. No
   pickle, no SQLite, no cache files.
+- **Immutable once parsed.** `Block` is a frozen dataclass and its `attributes`
+  mapping is read-only, so the memoised graph cannot be edited by one consumer
+  behind another's back.
 
 ## Tests
 

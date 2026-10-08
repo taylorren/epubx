@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import sys
 import time
+from dataclasses import FrozenInstanceError
 from pathlib import Path
 
 import pytest
@@ -18,7 +19,13 @@ from epubx import open_book  # noqa: E402
 from epubx.hrefs import normalize_href  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from fixtures import write_calibre_epub, write_chapter_epub, write_epub, write_scan_epub  # noqa: E402
+from fixtures import (  # noqa: E402
+    write_calibre_epub,
+    write_chapter_epub,
+    write_epub,
+    write_mutual_footnote_epub,
+    write_scan_epub,
+)
 
 
 @pytest.fixture(scope="module")
@@ -480,3 +487,53 @@ def test_note_backlinks_are_not_markers(tmp_path):
                  if node.kind == "footnote_ref"]
         assert "cal.xhtml#fnref900" not in hrefs
         assert "cal.xhtml#ftnref5" not in hrefs
+
+
+# -- immutability ---------------------------------------------------------
+
+def test_parsed_attributes_are_read_only(book):
+    """`Block` is frozen, and so is the dict inside it.
+
+    Rebinding a field already raised. Writing to `attributes` did not, and
+    `ch.blocks` is memoised, so one consumer's write was every later reader's
+    read. The mapping is read-only once parsing completes.
+    """
+    block = book.chapters[0].blocks[0]
+    with pytest.raises(TypeError):
+        block.attributes["element"] = "p"
+    with pytest.raises(FrozenInstanceError):
+        block.text = "rewritten"
+
+
+def test_nested_blocks_are_frozen_too(book):
+    """`items` and `rows` are frozen recursively, not just the top level."""
+    listing = next(b for b in book.chapters[0].blocks if b.kind == "list")
+    assert listing.items and listing.items[0].items, "a nested list lives here"
+    for nested in (listing.items[0], listing.items[0].items[0]):
+        with pytest.raises(TypeError):
+            nested.attributes["element"] = "p"
+
+    table = next(b for b in book.chapters[0].blocks if b.kind == "table")
+    with pytest.raises(TypeError):
+        table.rows[0][0].attributes["element"] = "p"
+
+
+def test_freeze_survives_a_reentrant_parse(tmp_path):
+    """Both chapters come back frozen when their notes reference each other.
+
+    Resolution parses the other chapter, which parses back — the path where
+    `Chapter.blocks` serves the *unfrozen* stash to a reentrant read
+    (PITFALLS §17). The outer access must still hand back frozen blocks, so
+    the guarantee is asserted here rather than assumed.
+    """
+    path = write_mutual_footnote_epub(tmp_path / "mutual.epub")
+    with open_book(path) as b:
+        first, second = b.chapters
+        assert first.footnotes[0].target_id.startswith("c0001/")
+        assert second.footnotes[0].target_id.startswith("c0000/")
+        for chapter in (first, second):
+            for block in chapter.blocks:
+                for node in block:  # nested blocks included
+                    with pytest.raises(TypeError):
+                        node.attributes["element"] = "p"
+

@@ -196,9 +196,10 @@ class Book:
             if reason is not None:
                 self._unsupported = reason
         return self._unsupported
+
     @property
     def obfuscated_fonts(self) -> tuple[str, ...]:
-        """Font files that are obfuscated (non‑DRM)."""
+        """Fonts scrambled to discourage extraction — not DRM, still readable."""
         return self._obfuscated_fonts
 
     def _detect_image_only(self) -> str | None:

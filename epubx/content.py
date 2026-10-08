@@ -13,6 +13,8 @@ consumer's decision, and is unrecoverable if done here.
 from __future__ import annotations
 
 import re
+from dataclasses import replace
+from types import MappingProxyType
 
 from .hrefs import normalize_href, split_fragment
 from .model import (
@@ -31,20 +33,26 @@ from .model import (
     Image,
 )
 from .xmlutil import epub_type, text_of
-from dataclasses import replace
-from types import MappingProxyType
+
 
 def _freeze_block(block: Block) -> Block:
-    """Recursively freeze a Block's attributes and nested blocks.
+    """Return a copy of `block` whose `attributes` can no longer be written.
 
-    Returns a new Block instance with ``attributes`` wrapped in an immutable
-    :class:`types.MappingProxyType`. Nested ``items`` and ``rows`` are also
+    `Block` is a frozen dataclass, which stops a field being rebound but not
+    the dict that field points at. The parsed graph is memoised and shared, so
+    one consumer's write would be every later reader's read — and the same
+    `Block` objects are served to reentrant parses. `items` and `rows` are
     frozen recursively.
     """
-    new_items = tuple(_freeze_block(b) for b in block.items)
-    new_rows = tuple(tuple(_freeze_block(b) for b in row) for row in block.rows)
-    new_attrs = MappingProxyType(dict(block.attributes))
-    return replace(block, attributes=new_attrs, items=new_items, rows=new_rows)
+    new_items = tuple(_freeze_block(item) for item in block.items)
+    new_rows = tuple(tuple(_freeze_block(cell) for cell in row) for row in block.rows)
+    return replace(
+        block,
+        attributes=MappingProxyType(dict(block.attributes)),
+        items=new_items,
+        rows=new_rows,
+    )
+
 
 HEADING_TAGS = {"h1", "h2", "h3", "h4", "h5", "h6"}
 QUOTE_TAGS = {"blockquote", "q"}

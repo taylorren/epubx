@@ -7,9 +7,10 @@ immutable, positional, and never persisted.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from functools import cached_property
-from typing import Iterator
+from typing import Any, Iterator
 
 # Block kinds, per the spec's content-model table.
 HEADING = "heading"
@@ -109,7 +110,10 @@ class Block:
     header_rows: int = 0  # table: leading rows that are headers
     ordered: bool = False  # list
     images: tuple[Image, ...] = ()
-    attributes: dict = field(default_factory=dict, compare=False)
+    # Parse detail: `element`, `level`, `dom_ids`, `target_id`, `mathml`, ...
+    # A plain dict while the parser builds the block, and a read-only Mapping
+    # once `parse_document` freezes it.
+    attributes: Mapping[str, Any] = field(default_factory=dict, compare=False)
 
     @property
     def plain_text(self) -> str:

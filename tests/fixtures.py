@@ -369,3 +369,53 @@ CALIBRE_CHAPTER = """<?xml version="1.0" encoding="utf-8"?>
 def write_calibre_epub(path) -> Path:
     """A one-chapter book whose footnotes follow the Word/Calibre id style."""
     return write_chapter_epub(path, CALIBRE_CHAPTER, href="cal.xhtml")
+
+
+# Two chapters whose notes reference each other. Resolving either one walks the
+# other, which walks back into the first — the reentrant path of PITFALLS §17,
+# and the only path on which `parse_document`'s freeze could be lost, because
+# `Chapter.blocks` serves the *unfrozen* stash to a reentrant read.
+MUTUAL_CHAPTER = """<?xml version="1.0" encoding="utf-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head><title>Mutual Notes</title></head>
+<body>
+  <p id="{own_id}">Note text for {own_id}.</p>
+  <p>Body text with a marker<a href="{other_href}#{other_id}">n</a>.</p>
+</body>
+</html>
+"""
+
+
+def write_mutual_footnote_epub(path) -> Path:
+    """Two chapters whose footnote markers point at each other's note."""
+    opf = """<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="id">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>Mutual Notes</dc:title><dc:language>en</dc:language>
+    <dc:identifier id="id">urn:uuid:mutual-notes</dc:identifier>
+  </metadata>
+  <manifest>
+    <item id="c1" href="ch1.xhtml" media-type="application/xhtml+xml"/>
+    <item id="c2" href="ch2.xhtml" media-type="application/xhtml+xml"/>
+  </manifest>
+  <spine>
+    <itemref idref="c1"/>
+    <itemref idref="c2"/>
+  </spine>
+</package>
+"""
+    chapters = {
+        "OEBPS/ch1.xhtml": MUTUAL_CHAPTER.format(
+            own_id="fn1", other_href="ch2.xhtml", other_id="fn2"),
+        "OEBPS/ch2.xhtml": MUTUAL_CHAPTER.format(
+            own_id="fn2", other_href="ch1.xhtml", other_id="fn1"),
+    }
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(zipfile.ZipInfo("mimetype"), "application/epub+zip",
+                    compress_type=zipfile.ZIP_STORED)
+        zf.writestr("META-INF/container.xml", CONTAINER)
+        zf.writestr("OEBPS/content.opf", opf)
+        for name, html in chapters.items():
+            zf.writestr(name, html)
+    return path
+

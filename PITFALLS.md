@@ -294,6 +294,42 @@ afternoon's fix.
 
 ---
 
+## 18. `Block.attributes` was a mutable `dict` on a frozen dataclass
+
+**Provenance: found by review, not by the corpus.** No book produced this one —
+nothing in the corpus writes to the parsed graph. It is recorded because it is
+the same failure *class* as everything else here: silent, plausible, and a
+disagreement between the graph and the document that nothing reports.
+
+`Block` is `@dataclass(frozen=True)`, which stops a field being rebound:
+`block.text = "x"` raises `FrozenInstanceError`. It does **not** stop the dict
+that field points at. `block.attributes["element"] = "p"` succeeded — and
+`ch.blocks` is a memoised `cached_property` whose `Block` objects are also
+handed to the reentrant-parse stash (§17), so one consumer's write was every
+later reader's read, including footnote resolution mid-parse. The graph then
+disagrees with the document, and nothing raises.
+
+Fix: `parse_document` returns copies whose `attributes` are wrapped in
+`types.MappingProxyType`, recursing through `items` and `rows`. Freezing runs
+*after* `_resolve_footnotes`, so `target_id` and `dom_ids` are already written.
+Writing to a parsed block's attributes now raises `TypeError`.
+
+Two things the fix leans on, both worth keeping in mind:
+
+- `parse_stash` deliberately holds the **unfrozen** blocks, because resolution
+  still writes to them. `Chapter.blocks` serves those to a reentrant read, and
+  the *outer* `cached_property` overwrites the cached value with the frozen
+  tuple once its parse returns. That ordering is what makes the freeze survive
+  §17's reentrancy, so a test asserts it rather than assuming it.
+- The freeze is a copy, not a conversion. Blocks are built as plain dicts and
+  frozen once, at the end of the parse; nothing mutates them afterwards.
+
+Lesson: `@dataclass(frozen=True)` is shallow. It stops rebinding, not mutation
+of what a field points at. An immutable public model needs its nested values
+made immutable too.
+
+---
+
 ## Known limitations (not bugs)
 
 - **Vertical CJK layout** is named as deferred in SPEC.md and is **not
@@ -311,8 +347,6 @@ afternoon's fix.
   Yao*. The book references `#fn__1`/`#fn__2` but defines `#fnt__1`/`#fnt__2` —
   a publisher typo, missing `t`. Nothing a parser can do; correctly left
   unresolved rather than guessed at.
-- **`Block.attributes` is a mutable `dict` on a frozen dataclass.** The model is
-  only shallowly immutable.
 - **Image-only detection is a heuristic** — first-200-chapters-or-first-prose.
   It is deliberately biased toward *not* flagging, because refusing a readable
   book is worse than missing a rare scan.

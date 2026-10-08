@@ -55,6 +55,7 @@ book.metadata      # Metadata(title, creators, language, identifier, publisher, 
 book.chapters      # lazy Sequence[Chapter], spine order
 book.toc           # TocNode tree — nav if present, NCX if present, else spine
 book.unsupported   # None | reason string
+book.obfuscated_fonts  # fonts scrambled to discourage extraction — not DRM
 
 book.spine         # ('OEBPS/Text/ch1.xhtml', ...) — reading order
 book.resource(path)  # Resource(path, media_type).read() — the book's own bytes
@@ -74,12 +75,21 @@ b.kind                              # heading | paragraph | quote | table | list
                                    # | preformatted | page_break
 b.text                              # plain text, when meaningful
 b.target_id                         # footnote_ref → resolves to its block
+b.attributes                        # read-only Mapping of parse detail
 ```
 
 ### Identity
 
 `{chapter_index}/b{ordinal}` — positional, not content-hashed. Survives
 republishing, so it anchors AI annotations and reading positions.
+
+### Immutability
+
+Everything the public API hands back is immutable. `Block` is a frozen
+dataclass and its `attributes` mapping is read-only once the chapter is parsed,
+so the memoised graph (`ch.blocks`) cannot be edited out from under another
+consumer. `attributes` carries parse detail — `element`, `level`, `dom_ids`,
+`target_id`, `mathml` — and is a `Mapping`, not a `dict`.
 
 ### Images
 

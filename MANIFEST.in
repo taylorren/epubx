@@ -1,0 +1,12 @@
+# The wheel ships only the package (see [tool.setuptools] in pyproject.toml).
+# The sdist is the source of the project, so it carries the tests, the dev
+# tools, and the docs the README points at.
+include README.md
+include SPEC.md
+include PITFALLS.md
+include RELEASING.md
+
+recursive-include tests *.py
+recursive-include tools *.py
+
+global-exclude __pycache__ *.py[cod]

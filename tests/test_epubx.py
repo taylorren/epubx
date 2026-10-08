@@ -1,6 +1,6 @@
 """Phase I bootstrap tests.
 
-Synthetic fixtures only; the 506-book corpus is exercised by
+Synthetic fixtures only; the real-book corpus is exercised by
 `test_corpus.py`, which skips cleanly when `EPUBX_CORPUS` is unset.
 """
 
@@ -83,7 +83,7 @@ def test_spine_order_matches_manifest(book):
 
 
 def test_bom_prefixed_documents_still_parse(tmp_path):
-    """25% of the corpus has a BOM before `<?xml`; lxml rejects those."""
+    """A BOM before `<?xml` must not break a document (no book has one yet)."""
     path = write_epub(tmp_path / "bom.epub", bom=True)
     with open_book(path) as b:
         assert b.metadata.title == "Test Book"

@@ -9,10 +9,9 @@ Read this before changing the parser. Most of these are ways to be *quietly*
 wrong, which is the only failure mode that matters in a library whose job is to
 report what a document contains.
 
-**Evidence base:** 299 EPUB files (1.3 GB, mostly Chinese, from a Calibre
-library) plus three hand-placed books. Current state: **0 uncaught exceptions**,
-645,555 paragraphs, 1,261/1,263 footnote references resolved, 4 books named
-image-only.
+**Evidence base:** 300 EPUB files (1.39 GB, mostly Chinese, from a Calibre
+library). Current state: **0 uncaught exceptions**, 661,108 paragraphs,
+7,900/7,905 footnote references resolved, 4 books named image-only.
 
 ---
 
@@ -333,7 +332,7 @@ made immutable too.
 ## Known limitations (not bugs)
 
 - **Vertical CJK layout** is named as deferred in SPEC.md and is **not
-  implemented**. Note what the corpus does and does not say about it: all 299
+  implemented**. Note what the corpus does and does not say about it: all 300
   books are Chinese or English, but **none declares `writing-mode`**, and their
   stylesheets are plainly horizontal (`text-align: justify`, left/right margins).
   So this corpus provides *no evidence* about vertical layout either way — it is
@@ -343,10 +342,11 @@ made immutable too.
   was wrong.
 - **Math** has 0 occurrences across the corpus. The MathML path is
   specification-correct and empirically unvalidated — synthetic fixtures only.
-- **2 of 1,263 footnote references cannot resolve**, in *Zhe Ben Shu Jiao Shi
-  Yao*. The book references `#fn__1`/`#fn__2` but defines `#fnt__1`/`#fnt__2` —
-  a publisher typo, missing `t`. Nothing a parser can do; correctly left
-  unresolved rather than guessed at.
+- **5 of 7,905 footnote references cannot resolve.** 2 are in *Zhe Ben Shu Jiao
+  Shi Yao*, where the book references `#fn__1`/`#fn__2` but defines
+  `#fnt__1`/`#fnt__2` — a publisher typo, missing `t`. The other 3 point at
+  external web URLs, which are not zip members. Nothing a parser can do;
+  correctly left unresolved rather than guessed at.
 - **Image-only detection is a heuristic** — first-200-chapters-or-first-prose.
   It is deliberately biased toward *not* flagging, because refusing a readable
   book is worse than missing a rare scan.

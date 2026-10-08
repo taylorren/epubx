@@ -358,7 +358,7 @@ class Book:
             text = "".join(child.itertext()).strip()
 
             if name == "meta":
-                # `epub:type` refinements (316/506 books) merge into creators.
+                # `epub:type` refinements (9/300 books) merge into creators.
                 prop = child.get("property") or child.get("name") or ""
                 if prop == "cover" and child.get("content"):
                     self._cover_id = child.get("content")

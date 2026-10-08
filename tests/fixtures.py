@@ -1,6 +1,6 @@
 """Synthetic EPUB fixtures.
 
-The reference corpus (506 books) is read from `EPUBX_CORPUS`; these fixtures
+The reference corpus (300 books) is read from `EPUBX_CORPUS`; these fixtures
 are the floor beneath it, so the suite passes in CI with no books present.
 """
 
@@ -262,7 +262,8 @@ def write_epub(path, *, with_ncx: bool = True, with_nav: bool = True,
         )
         for name, data in files.items():
             raw = data if isinstance(data, bytes) else data.encode("utf-8")
-            # 25% of the corpus puts a BOM before `<?xml`; lxml rejects those.
+            # No book in the corpus has a BOM; the first one that does must not
+            # need a code change.
             if bom and name.endswith((".opf", ".xhtml", ".ncx")):
                 raw = b"\xef\xbb\xbf" + raw
             zf.writestr(name, raw)

@@ -59,9 +59,9 @@ QUOTE_TAGS = {"blockquote", "q"}
 PREFORMATTED_TAGS = {"pre", "code", "kbd", "samp", "tt"}
 MATH_TAGS = {"math"}
 CONTAINER_TAGS = {"aside", "section", "nav", "header", "footer", "article", "div"}
-# `epub:type="pagebreak"` appears 1,873 times in the corpus.
+# `epub:type="pagebreak"` appears 516 times in the corpus.
 PAGEBREAK_MARKERS = {"pagebreak", "page-break"}
-# 1,199 footnote markers against 12,737 hrefs in the corpus.
+# 7,905 footnote markers across 23 books in the corpus.
 FOOTNOTE_CLASS = re.compile(r"(^|[-_ ])(fn|footnote|noteref|endnote)([-_ ]|$)")
 # Word and Calibre pipelines name footnotes with compact ids that carry no
 # separator and no semantics: fn674, _ftn5, note12, endnote-2. The token
@@ -660,9 +660,10 @@ def _header_rows(rows) -> int:
 def _math_attrs(element) -> dict:
     """Preserve the MathML structure as an attribute payload.
 
-    Math has 0 occurrences across the 506-book corpus, so this path is
-    spec-derived and exercised only by hand-written fixtures: specification-
-    correct, empirically unvalidated until a real math EPUB appears.
+    Math has 0 occurrences across the corpus (300 books, 15,308 chapters), so
+    this path is spec-derived and exercised only by hand-written fixtures:
+    specification-correct, empirically unvalidated until a real math EPUB
+    appears.
     """
     def walk(node):
         tag = node.tag if isinstance(node.tag, str) else None

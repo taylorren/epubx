@@ -2,9 +2,13 @@
 
 Two rules from the robustness table live here:
 
-* 25% of the corpus puts a BOM before `<?xml`; lxml rejects those outright, so
-  parsing always uses `recover=True`.
+* Content documents are not reliably well-formed XML — 4 of 3,513 documents in
+  a 60-book sample were not — so parsing always uses `recover=True`.
 * We trust structure over declared version.
+
+A BOM is read as an encoding signal and stripped before parsing. No book in the
+corpus has one, and lxml tolerates them anyway; the handling stays so that the
+first book which does have one needs no code change.
 """
 
 from __future__ import annotations

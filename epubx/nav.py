@@ -135,7 +135,7 @@ def build_toc(book, base: str = "") -> tuple[TocNode, ...]:
             if toc:
                 return toc
 
-    # EPUB 2: NCX. Present in 449/506 books, so it is the primary source.
+    # EPUB 2: NCX. Present in 299/300 books, so it is the primary source.
     ncx_entry = _manifest_entry(book, lambda e: e["media_type"] == NCX_MEDIA_TYPE)
     if ncx_entry is None:
         ncx_entry = _manifest_entry(book, lambda e: e["href"].endswith(".ncx"))

@@ -125,18 +125,22 @@ nothing rewritten. The parsed content model below is for consumers that need
 `ch.blocks` is a flat ordered tuple. Nesting (lists, definition lists, table
 cells) lives inside the owning block.
 
-| Kind | Corpus occurrences | Notes |
+| Kind | Blocks / books | Notes |
 |---|---|---|
-| `paragraph`, `heading` | pervasive | |
-| `quote` | 13,931 | |
-| `table` | 351 / 140 books | `rows`, `header_rows` |
-| `list` | common | ordered/unordered, nested |
-| `definition_list` | 525 | `glossterm`/`glossdef` |
-| `figure` + caption | 167 / 77 | |
-| `footnote_ref` | 1,199 markers, 12,737 hrefs | graph edge to `target_id` |
-| `preformatted` | 2,850 | |
-| `page_break` | 1,873 | `epub:type="pagebreak"` |
+| `paragraph` | 661,108 / 296 | |
+| `heading` | 16,799 / 139 | `level` in `attributes` |
+| `quote` | 10,804 / 27 | |
+| `list` | 9,477 / 47 | `items`; ordered/unordered, nested |
+| `figure` | 9,082 / 294 | caption in `text` and `attributes` |
+| `footnote_ref` | 7,905 / 23 | graph edge to `target_id` |
+| `preformatted` | 2,812 / 17 | |
+| `definition_list` | 2,058 / 8 | `glossterm`/`glossdef` |
+| `table` | 528 / 30 | `rows`, `header_rows` |
+| `page_break` | 516 / 4 | `epub:type="pagebreak"` |
 | `math` | **0** | spec-derived, synthetic fixtures |
+
+Counts are measured over the 300-book corpus and **include nested blocks**
+(721,089 in total), so a list's items are counted alongside the list itself.
 
 Also observed and modelled: `bodymatter` / `frontmatter` / `backmatter` /
 `landmarks` / `titlepage` / `warning` semantics.
@@ -169,33 +173,56 @@ image format, it hands over the book's own bytes.
 
 ## Robustness rules
 
-Ranked by measured frequency, none privileged in code:
+Ranked by measured frequency over the 300-book corpus, none privileged in code:
 
-| Rule | Corpus | Response |
+| Rule | Measured | Response |
 |---|---|---|
-| BOM before `<?xml` | 129/506 (25%) | `recover=True` — lxml rejects these otherwise |
-| OPF declares 1.0, is EPUB 2 | 392/506 (77%) | trust structure over version string |
-| NCX present | 449/506 (89%) | primary nav source; nav preferred when both exist |
-| `epub:type` refinements | present in 316 | merge into `metadata.creators` |
-| Cover via `guide` vs `meta name="cover"` | 255 vs 251 | accept both |
-| Missing nav | 95% of books | NCX, else spine order |
-| Missing NCX | ~11% | spine order |
-| Percent-encoded / `../` hrefs | — | normalise |
-| DRM (Adobe ADEPT) | 17/506 (3.2%) | named `unsupported`, no attempt |
+| NCX present | 299/300 (99.7%) | primary nav source; nav preferred when both exist |
+| OPF declares 2.0, is EPUB 2 | 284/300 (95%) | trust structure over version string |
+| Missing nav | 284/300 (95%) | NCX, else spine order |
+| Cover via `meta name="cover"` vs `guide` | 295 vs 282 books | accept both |
+| `epub:type` role refinements | 9/300 (3%) | merge into `metadata.creators` |
+| Percent-encoded / `../` hrefs | 3/300 books percent-encoded | normalise |
+| Missing NCX | 1/300 | spine order |
+| Content not well-formed XML | 4 of 3,513 documents | `recover=True` |
+| Font obfuscation (fonts only in `encryption.xml`) | 2/300 books | not DRM — parse, record `obfuscated_fonts` |
+| DRM | **0/300** | named `unsupported`, no attempt |
+| BOM before `<?xml` | **0 of 16,178 members** | stripped; lxml tolerates them anyway |
 
 ---
 
 ## Reference corpus
 
-506 parseable books; 17 DRM; **zero unreadable zips, zero missing OPFs**. Zero
-uncaught failures across the full set.
+A working Calibre library: **300 books, 1.39 GB, mostly Chinese**, discovered by
+walking `*.epub`. One further book sits under `.caltrash/` and is excluded. The
+count drifts as the library changes, so it is always quoted as approximate. There
+is no manifest — expected values come from the books themselves and from the
+assertions in `tests/test_corpus.py`.
 
-Distribution: OPF version 1.0 → 392, 2.0 → 95, 3.0 → 16, 1.1 → 3.
-Image formats: 19,154 JPEG, 1,690 PNG, 103 GIF, 1 SVG.
+Measured over the full set with `tools/audit_corpus.py`:
 
-Tests read books from a local path defined by `EPUBX_CORPUS`; a `manifest.toml`
-records path, sha256, expected metadata and chapter counts, plus exclusion
-reasons. Tests skip cleanly when the corpus is absent, so CI works without books.
+- **15,308 chapters, 721,089 blocks, 104,659,634 characters** of text across 296
+  supported books.
+- **Zero uncaught exceptions and zero RED findings** — nothing that should render
+  fails to. 23 AMBER findings, all degraded-but-readable: 3 books with TOC
+  entries pointing at missing members, 4 with images referenced but not bundled,
+  2 with unresolved footnotes.
+- **7,905 footnote references, 5 unresolved** — 2 are the publisher typo recorded
+  under Known limitations, 3 point at external web URLs.
+- OPF version: **2.0 → 284, 3.0 → 16**. No book declares 1.0 or 1.1.
+- TOC source: **NCX → 284, nav → 16**.
+- Metadata: title 298/300, author 297/300, language 298/300; a cover is present
+  in 294/300.
+- Images: **14,113 JPEG, 1,196 PNG, 107 GIF, 1 SVG**.
+- Deferred by design: **4 image-only books, 0 DRM**. Font obfuscation (not DRM)
+  in 2 books.
+- **Zero BOMs** across 16,178 XML-ish members.
+
+Tests read books from a local path defined by `EPUBX_CORPUS` and skip cleanly
+when it is absent, so CI works without books. With a **local** copy of the corpus
+present the whole suite is green: **92 passed, 0 skipped**. Over a network mount
+`test_open_is_under_fifty_milliseconds` measures the mount rather than the parser
+and can fail on that alone (PITFALLS 11), so benchmark against a local copy.
 
 ---
 
@@ -218,7 +245,7 @@ images.
 **Footnote normalization** — compact-id recognition (Word/Calibre exports:
 `fn674`, `_ftn5`, `note12`) and the normalized edge list `Chapter.footnotes`
 (marker → resolved target block + the note's text) — was verified against a
-301-book Calibre library (the project's `EPUBX_CORPUS`; the count drifts as
+300-book Calibre library (the project's `EPUBX_CORPUS`; the count drifts as
 the library changes, hence "approximately 300 books"): **7,905 footnote
 markers across 23 books, 7,900 resolved (99.9%)**. 5,890 of those markers
 (75% of the total) exist only through the compact-id recognition — six books
@@ -228,10 +255,10 @@ limitations, 3 point at external web URLs. The same verification run caught
 a reentrant-parse defect in four books (PITFALLS 17) — the corpus doing its
 job.
 
-**Spec-derived only:** math — **0 occurrences across 506 books**. Hand-written
-synthetic MathML fixtures. This code path will be specification-correct and
-empirically unvalidated until a real math EPUB appears; recorded as such rather
-than claimed as tested.
+**Spec-derived only:** math — **0 occurrences across the 300-book corpus**.
+Hand-written synthetic MathML fixtures. This code path will be
+specification-correct and empirically unvalidated until a real math EPUB
+appears; recorded as such rather than claimed as tested.
 
 Also absent from the corpus, therefore unmodelled: ruby annotations, iframes
 (both 0 occurrences).

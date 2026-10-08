@@ -6,6 +6,26 @@ See `SPEC.md` for the full design and **`PITFALLS.md`** for the silent-failure
 modes found by running against real books — read that one before changing the
 parser.
 
+## The short version
+
+An EPUB already holds everything a reader needs: the text, the table of
+contents, the references between them, the images, and the files a renderer
+needs. So epubx invents no model of its own — it **translates what the book
+already declares** into a graph you can walk, and hands the book's own files
+back for display.
+
+Nothing is inferred, scored or guessed. The navigation is the book's own
+nav/NCX, the reading order is its own spine, the footnote edges are its own
+links, and the cover is whichever candidate the book declares. A book that
+states something epubx cannot represent is named in `book.unsupported` rather
+than given an invented answer.
+
+The translation is checked against **~300 real EPUBs** — a working Calibre
+library, 1.39 GB, mostly Chinese. All of them open and parse with zero uncaught
+exceptions, 7,900 of 7,905 footnote references resolve, and every modelled block
+kind except `math` occurs in real data. See *Verified against ~300 real EPUBs*
+below for what that does and does not prove.
+
 ```python
 from epubx import open_book
 
@@ -93,6 +113,10 @@ pip install -e '.[test]'
 
 ## Design notes
 
+- **The book is the source of truth.** Where the book already declares an
+  answer, nothing is inferred: nav/NCX is the TOC, the spine is the reading
+  order, the book's own links are the footnote edges. Where a book declares
+  something unrepresentable, `book.unsupported` names it instead of guessing.
 - **Laziness.** `open_book` reads the zip central directory and the OPF only;
   chapters parse on first access. The archive is never extracted to disk.
 - **Identity is positional.** `{chapter_index}/b{ordinal}`, numbered from one
@@ -124,7 +148,8 @@ python -m pytest tests -q
 ```
 
 The suite builds synthetic EPUBs covering every modelled block kind, so it
-passes with no books present. Corpus tests read from `EPUBX_CORPUS` and skip
+passes with no books present. Corpus tests read from `EPUBX_CORPUS` — the
+~300-book library described under *Verified against ~300 real EPUBs* — and skip
 when it is unset:
 
 ```
@@ -148,18 +173,26 @@ resolving, 72,629 words, zero uncaught exceptions. It has no
 `h1`–`h6` at all (calibre output: `p`/`span` only), so its block kinds are
 `paragraph` and `figure` only — correct for that book, not a parser gap.
 
-## Verified against the 300-book NAS corpus
+## Verified against ~300 real EPUBs
 
-`/Volumes/Sync/Book Shelf/calibre` — 300 books, 1.3 GB, mostly Chinese. Its tag
-histogram reproduces the figures in SPEC.md almost exactly (`definition_list`
-524 vs 524, `quote` 10,804 vs 13,931, `preformatted` 2,812 vs 2,850, `figure`
-13,225, `math` **0**), so it behaves like the reference corpus.
+The reference corpus is a working Calibre library — **300 books, 1.39 GB, mostly
+Chinese** — walked for `*.epub` with no manifest, so the count drifts as the
+library changes. Every figure SPEC.md reports about the corpus is measured over
+this set rather than estimated from it; see *Reference corpus* there for the full
+inventory.
 
-- **300/300 books parse with zero uncaught exceptions**; all 5 corpus tests pass.
-- **Every modelled kind except `math` occurs in real data**, including the five
-  that synthetic fixtures had been the only cover for: `table`, `definition_list`,
-  `preformatted`, `quote`, `figure`.
-- **1,263 footnote references, all resolved.**
+- **300/300 books parse with zero uncaught exceptions**, and the audit reports
+  zero RED findings — nothing that should render fails to. With a local copy of
+  the corpus the whole suite is green: 92 passed, 0 skipped. (Over a network
+  mount the `open()` timing test can measure the mount instead of the parser —
+  PITFALLS 11.)
+- **Every modelled kind except `math` occurs in real data** — 721,089 blocks
+  across 15,308 chapters, including the five that synthetic fixtures had been
+  the only cover for: `table`, `definition_list`, `preformatted`, `quote`,
+  `figure`.
+- **7,900 of 7,905 footnote references resolve.** The 5 that do not are 2
+  publisher typos (`#fn__1` referenced, `#fnt__1` defined) and 3 external web
+  URLs — correctly left unresolved rather than guessed at.
 - `open()` median **13 ms on a 176 MB book** (criterion 1).
 
 Two bugs this corpus found, both invisible to the synthetic fixtures:
@@ -211,7 +244,7 @@ running against real books:
 - **Image-only / manga** — decided lazily on first access, because it requires
   parsing. Detection walks chapters in order and stops at the first real prose;
   a fixed-stride sampler was tried first and condemned a 1,690-chapter text
-  book whose prose sat in 51 of them. Of 299 corpus books, exactly 4 are named
+  book whose prose sat in 51 of them. Of 300 corpus books, exactly 4 are named
   image-only, and all 4 are genuine scans.
 
 ## Coverage honesty
@@ -219,7 +252,7 @@ running against real books:
 Corpus-verified: navigation, metadata, spine, tables, footnotes, figures, lists,
 images.
 
-Spec-derived only: **math** — 0 occurrences across the 506-book corpus, so the
+Spec-derived only: **math** — 0 occurrences across ~300 real EPUBs, so the
 MathML path is exercised by hand-written fixtures alone. It is specification-
 correct and empirically unvalidated until a real math EPUB appears.
 

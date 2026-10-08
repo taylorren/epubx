@@ -3,7 +3,8 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "epubx"
+# The PyPI distribution name is epub-extended; the import name stays epubx.
+name = "epub-extended"
 dynamic = ["version"]
 description = "Open EPUB files and expose their content as a structured, lazily-parsed graph."
 readme = "README.md"

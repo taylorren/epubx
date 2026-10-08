@@ -11,34 +11,39 @@ that disagrees with the code.
    Per the PyPI docs: "A 'pending' publisher does not create a project or reserve
    a project's name until it is actually used to publish."
 
-2. **`epubx` is already registered on PyPI and has no releases.** Verified:
-   `pypi.org/simple/epubx/` answers 200 with `project-status: active` and zero
-   files, while a control name 404s. PyPI's *search* shows nothing because search
-   indexes released projects only — absence from search proves nothing.
+2. **The PyPI project name is `epub-extended`.** `epubx` is already registered
+   on PyPI and has no releases — verified: `pypi.org/simple/epubx/` answers 200
+   with `project-status: active` and zero files, while a control name 404s.
+   PyPI's *search* shows nothing because search indexes released projects only —
+   absence from search proves nothing.
 
-   Three ways forward, in order of cost:
+   Decision recorded: the *distribution* is renamed, not the project. The name
+   `epub-extended` was reserved by the first use of a *pending publisher*
+   (<https://pypi.org/manage/account/publishing/>); per the PyPI docs, a pending
+   publisher does not create a project or reserve a project's name until it is
+   actually used to publish. The import name stays `epubx` (`packages =
+   ["epubx"]` in `pyproject.toml`), the repository stays `epubx`, and no code
+   changes.
 
-   | Situation | Action |
-   |---|---|
-   | You already own it | Nothing to register. Check <https://pypi.org/manage/projects/> and the pending publishers at <https://pypi.org/manage/account/publishing/>, then publish. |
-   | You do not own it, and want to ship now | Rename the *distribution*: `name = "epubx-py"` in `pyproject.toml`. The import name stays `epubx` (`packages = ["epubx"]`), the repository stays `epubx`, and no code changes. Measured free on PyPI: `epubx-py`, `python-epubx`, `epubx-lib`, `pyepubx`, `epub-x`. Prefer one that is not a near-twin of the taken name — `epub-x` differs from `epubx` by a single hyphen and only invites confusion. |
-   | You do not own it, and want that exact name | PEP 541 name request. Per the Name Retention policy a project is *abandoned* only when **all** of these hold: the owner is unreachable (PyPI attempts contact three times over six weeks), there have been **no releases in the past twelve months**, and there is no owner activity on the project's home page. Reusing a name for a *different* project has stricter criteria than continuing maintenance, and "name squatting (package has no functionality or is empty)" is grounds for removal. Process: contact the owner first, search existing requests, then open an issue at <https://github.com/pypi/support/issues>. Expect weeks to months; refusal is possible. |
+   The pending publisher details (as recorded): pending project name
+   `epub-extended`, publisher GitHub, repository `taylorren/epubx`, workflow
+   `publish.yml`, environment `pypi`. Trusted publishing matches these fields
+   **exactly** — the workflow file on GitHub is `publish.yml`; if the pending
+   publisher was added as `publish.yaml`, remove and re-add it with
+   `publish.yml`, or the upload is rejected.
 
-   A first attempt at a *pending publisher* for `epubx` is the cheapest way to
-   learn which case you are in: accepted means the name is yours to publish to,
-   rejected means it is taken.
-
-3. **Rehearse on TestPyPI meanwhile.** `epubx` is free there
-   (`test.pypi.org/simple/epubx/` answers 404), and `publish.yml` publishes to
-   TestPyPI on demand — enough to prove the whole pipeline end to end without
-   touching the disputed name.
+3. **Rehearse on TestPyPI meanwhile.** `epub-extended` is free there
+   (`test.pypi.org/simple/epub-extended/` answers 404 until the first publish),
+   and `publish.yml` publishes to TestPyPI on demand — enough to prove the whole
+   pipeline end to end without touching the production name. TestPyPI needs its
+   own pending publisher (step 4).
 
 4. **Enable Trusted Publishing.** On <https://pypi.org/manage/account/publishing/>
    add a pending publisher (and a second one on <https://test.pypi.org>):
 
    | Field | Value |
    |---|---|
-   | PyPI Project Name | `epubx` |
+   | PyPI Project Name | `epub-extended` |
    | Owner | `taylorren` |
    | Repository name | `epubx` |
    | Workflow name | `publish.yml` |
@@ -67,7 +72,7 @@ uvx twine check --strict dist/*
 #    Run it from the repo root and Python imports the local source tree
 #    instead of the wheel, so the test proves nothing.
 cd /tmp
-uv run --isolated --no-project --with /path/to/epubx/dist/epubx-0.1.1-py3-none-any.whl \
+uv run --isolated --no-project --with /path/to/epubx/dist/epub-extended-0.1.1-py3-none-any.whl \
     python -c "import epubx; print(epubx.__version__, epubx.__file__)"
 
 # 6. Commit, tag, push.
@@ -94,7 +99,7 @@ Rehearse on TestPyPI first:
 uv publish --publish-url https://test.pypi.org/legacy/ \
     --token pypi-AgEIcHlwaS5vcmc...
 python -m pip install -i https://test.pypi.org/simple/ --extra-index-url \
-    https://pypi.org/simple/ epubx
+    https://pypi.org/simple/ epub-extended
 ```
 
 ## Rules the package enforces on itself

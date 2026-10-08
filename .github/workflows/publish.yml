@@ -2,8 +2,10 @@ name: Publish
 
 # Publishing uses PyPI Trusted Publishing (OIDC): no API tokens are stored.
 # Configure the publisher once on PyPI (and TestPyPI) with:
-#   Owner: taylorren   Repository: epubx
+#   Project name: epub-extended   Owner: taylorren   Repository: epubx
 #   Workflow: publish.yml   Environment: pypi (or testpypi)
+# The fields above must match the pending publisher EXACTLY — the file on
+# GitHub is publish.yml; publish.yaml will be rejected.
 # See RELEASING.md.
 
 on:

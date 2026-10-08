@@ -79,9 +79,16 @@ types instead of `text/html` for XHTML.
 
 ## Install
 
+The PyPI distribution is **`epub-extended`** (`epubx` is taken; the import name
+stays `epubx`):
+
 ```
-pip install -e .          # requires Python >= 3.10 and lxml
-pip install -e '.[test]'  # adds pytest
+pip install epub-extended         # requires Python >= 3.10 and lxml
+pip install 'epub-extended[test]' # adds pytest
+
+# development, from the source tree:
+pip install -e .
+pip install -e '.[test]'
 ```
 
 ## Design notes

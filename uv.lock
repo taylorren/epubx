@@ -12,7 +12,7 @@ wheels = [
 ]
 
 [[package]]
-name = "epubx"
+name = "epub-extended"
 source = { editable = "." }
 dependencies = [
     { name = "lxml" },

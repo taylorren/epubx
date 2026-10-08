@@ -9,3 +9,4 @@ dist/
 *.epub
 
 .DS_Store
+.vscode/settings.json

@@ -329,6 +329,42 @@ made immutable too.
 
 ---
 
+## 19. A declared TOC can be shallower than the book
+
+**Provenance: found on a real book, not by a crash.** *项狄传* (a Calibre 2.71
+MOBI->EPUB conversion) declares 20 `navPoint`s: front matter, a preface with
+its sub-sections, then 第一卷…第九卷 and 新版附记. The volume points have **no
+children**. The chapters exist — as `<h3 id="secN">第一章</h3>` headings inside
+each volume's own document — but the NCX and the in-book nav never name them.
+`book.toc` therefore reports nine volumes and nothing inside them, which is
+exactly what the book declares. A reader that trusts it shows a table of
+contents that looks complete and offers no way into any volume: the failure
+this file is about, produced by neither an exception nor a missing file.
+
+The shape is systematic, not a one-off. A conversion that split the *volumes*
+into documents left the *chapters* as headings, so the nav stops at the
+document boundary it created.
+
+Response: `book.outline` (opt-in, `epubx/outline.py`) keeps the declared tree as
+the backbone and fills a node's children from the headings in its span, only
+where the book gave it none. `book.toc` is untouched, so a consumer that wants
+the declared contents still gets them verbatim. Two consequences are deliberate:
+
+- **Every heading below the entry's own is reported.** A dedication, a story
+  title, a running sub-section — all are headings, and deciding which is a
+  "chapter" is the reader's judgement, not the parser's (parse, don't judge).
+  Heading text is reported as extracted, so a heading that carries a footnote
+  marker keeps its digit (`献与公正可敬的皮特先生2`).
+- **The span runs to the next declared entry, across documents.** 第九卷's title
+  is an `<h1>` in one document and its chapters begin in the *next*, so a
+  same-document scan would drop the volume entirely. The span boundary is the
+  next TOC node outside the entry's subtree, which is what makes the forward
+  scan correct — at the cost of nesting 第九卷's chapters under the `<h2>`
+  dedication that happens to precede them.
+
+---
+
+
 ## Known limitations (not bugs)
 
 - **Vertical CJK layout** is named as deferred in SPEC.md and is **not

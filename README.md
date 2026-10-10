@@ -34,6 +34,8 @@ book = open_book("path.epub")        # central dir + OPF only
 book.metadata      # Metadata(title, creators, language, identifier, ...)
 book.chapters      # lazy Sequence[Chapter], spine order
 book.toc           # TocNode tree — nav if present, NCX if present, else spine
+book.outline       # TocNode tree — toc with heading-derived children filling
+                   #   entries the nav left empty (opt-in; reads every chapter)
 book.unsupported   # None | reason string
 book.obfuscated_fonts  # fonts scrambled to discourage extraction — not DRM
 book.cover         # Image | None — guide, meta or cover-image, whichever is declared

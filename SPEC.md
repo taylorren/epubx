@@ -24,7 +24,8 @@ are designed to be final, so later phases add capability without migration.
    `<script>`, `<nav>`, `<table>`. Sanitising for display is the consumer's
    decision and is unrecoverable if done here.
 5. **Derived, never persisted.** `plain_text` is computed and memoized, not
-   stored.
+   stored — as is `outline`, the declared TOC with heading-derived children
+   filled in where the nav left a node empty.
 6. **No persistence in Phase I.** No pickle, no SQLite, no cache files.
    Storage is a later, separate decision.
 
@@ -54,6 +55,8 @@ book = open_book("path.epub")        # central dir + OPF only; <50ms target
 book.metadata      # Metadata(title, creators, language, identifier, publisher, date)
 book.chapters      # lazy Sequence[Chapter], spine order
 book.toc           # TocNode tree — nav if present, NCX if present, else spine
+book.outline       # TocNode tree — toc with heading-derived children filling
+                   #   entries the nav left empty (opt-in; reads every chapter)
 book.unsupported   # None | reason string
 book.obfuscated_fonts  # fonts scrambled to discourage extraction — not DRM
 

@@ -112,6 +112,7 @@ class Book:
         self._manifest: dict[str, dict] = {}
         self._spine: list[Chapter] = []
         self._toc: tuple[TocNode, ...] | None = None
+        self._outline: tuple[TocNode, ...] | None = None
         self.metadata = Metadata()
         self._cover_id: str | None = None
         self._id_index: dict[str, str] | None = None
@@ -509,6 +510,24 @@ class Book:
 
             self._toc = build_toc(self)
         return self._toc
+
+    @property
+    def outline(self) -> tuple[TocNode, ...]:
+        """The declared TOC, with heading-derived children filling empty nodes.
+
+        `toc` is the book's own navigation, verbatim. Some books declare less
+        than their documents hold — a volume-only NCX whose chapters exist only
+        as headings inside each volume (PITFALLS 19). This derives the missing
+        children from those headings and is opt-in: a consumer that wants the
+        book's declared contents asks `toc`, and one that wants a navigable
+        outline asks `outline`. It reads every chapter, so it is not for the
+        `open()` fast path.
+        """
+        if self._outline is None:
+            from .outline import build_outline
+
+            self._outline = build_outline(self)
+        return self._outline
 
     @property
     def cover(self) -> Image | None:

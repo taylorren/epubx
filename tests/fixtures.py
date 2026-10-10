@@ -420,3 +420,101 @@ def write_mutual_footnote_epub(path) -> Path:
             zf.writestr(name, html)
     return path
 
+
+
+# A volume-only NCX, the shape a Calibre MOBI->EPUB conversion leaves behind:
+# the navigation names the volumes, while the chapters inside them exist only as
+# `<h3>` headings in the volume's own document (PITFALLS 19). Volume Two's title
+# sits in one document and its chapters in the next, so the outline has to scan
+# forward past the title page to find them.
+OUTLINE_VOL1 = """<?xml version="1.0" encoding="utf-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head><title>Volume One</title></head>
+<body>
+  <h2 id="v1">Volume One</h2>
+  <h3 id="c1">Chapter 1</h3>
+  <p>First chapter prose.</p>
+  <h3>Chapter 2</h3>
+  <p>Second chapter prose, its heading carrying no id.</p>
+</body>
+</html>
+"""
+
+OUTLINE_VOL2_TITLE = """<?xml version="1.0" encoding="utf-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head><title>Volume Two</title></head>
+<body>
+  <h1 id="v2">Volume Two</h1>
+  <p>The volume's title page.</p>
+</body>
+</html>
+"""
+
+OUTLINE_VOL2_BODY = """<?xml version="1.0" encoding="utf-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head><title>Volume Two</title></head>
+<body>
+  <h2 id="d2">A Dedication</h2>
+  <p>Dedication prose.</p>
+  <h3 id="c3">Chapter 3</h3>
+  <p>Third chapter prose.</p>
+</body>
+</html>
+"""
+
+OUTLINE_NCX = """<?xml version="1.0" encoding="utf-8"?>
+<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
+  <head><meta name="dtb:uid" content="urn:uuid:outline"/></head>
+  <docTitle><text>Outline Book</text></docTitle>
+  <navMap>
+    <navPoint id="n1" playOrder="1">
+      <navLabel><text>Volume One</text></navLabel>
+      <content src="vol1.xhtml"/>
+    </navPoint>
+    <navPoint id="n2" playOrder="2">
+      <navLabel><text>Volume Two</text></navLabel>
+      <content src="vol2a.xhtml"/>
+    </navPoint>
+  </navMap>
+</ncx>
+"""
+
+OUTLINE_OPF = """<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="id">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>Outline Book</dc:title><dc:language>en</dc:language>
+    <dc:identifier id="id">urn:uuid:outline</dc:identifier>
+  </metadata>
+  <manifest>
+    <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+    <item id="v1" href="vol1.xhtml" media-type="application/xhtml+xml"/>
+    <item id="v2a" href="vol2a.xhtml" media-type="application/xhtml+xml"/>
+    <item id="v2b" href="vol2b.xhtml" media-type="application/xhtml+xml"/>
+  </manifest>
+  <spine toc="ncx">
+    <itemref idref="v1"/>
+    <itemref idref="v2a"/>
+    <itemref idref="v2b"/>
+  </spine>
+</package>
+"""
+
+
+def write_outline_epub(path):
+    """A book whose NCX names only volumes, with chapters only as headings."""
+    files = {
+        "mimetype": "application/epub+zip",
+        "META-INF/container.xml": CONTAINER,
+        "OEBPS/content.opf": OUTLINE_OPF,
+        "OEBPS/toc.ncx": OUTLINE_NCX,
+        "OEBPS/vol1.xhtml": OUTLINE_VOL1,
+        "OEBPS/vol2a.xhtml": OUTLINE_VOL2_TITLE,
+        "OEBPS/vol2b.xhtml": OUTLINE_VOL2_BODY,
+    }
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(zipfile.ZipInfo("mimetype"), files.pop("mimetype"),
+                    compress_type=zipfile.ZIP_STORED)
+        for name, data in files.items():
+            zf.writestr(name, data.encode("utf-8"))
+    return path
+

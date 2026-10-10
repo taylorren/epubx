@@ -67,6 +67,15 @@ FOOTNOTE_CLASS = re.compile(r"(^|[-_ ])(fn|footnote|noteref|endnote)([-_ ]|$)")
 # separator and no semantics: fn674, _ftn5, note12, endnote-2. The token
 # list mirrors FOOTNOTE_CLASS; the compact forms are what those exports emit.
 COMPACT_FRAGMENT = re.compile(r"^(?:_?ftn|fn|note|endnote|footnote)[-_.]?\d+$")
+# A marker printed as a circled or parenthesised digit — ①②③, ⑴⑵, ❶❷. A CJK
+# edition uses these where a Latin book prints a bare `1`; the marker then
+# carries no semantic type, no footnote class and an id no scheme recognises
+# (Cambridge History of Republican China prints 6,336 of them). The note's own
+# back-link is the same shape, so the printed text alone cannot decide which is
+# which — direction does (see `_sweep_symbol_markers`).
+FOOTNOTE_SYMBOL = re.compile(
+    "[\u2460-\u2473\u24ea\u2474-\u2487\u2488-\u249b\u2776-\u2793]+"
+)
 
 MEDIA_TYPES_BY_SUFFIX = {
     "jpg": "image/jpeg", "jpeg": "image/jpeg", "jpe": "image/jpeg",
@@ -368,6 +377,45 @@ class _Builder:
         # href and holds the element strongly.
         self._seen_refs[(element.sourceline, href)] = element
         self.emit(element, FOOTNOTE_REF, text=text, attributes=attributes)
+
+    def _sweep_symbol_markers(self, root) -> None:
+        """Report markers printed as a footnote symbol rather than named as one.
+
+        A CJK edition may print a note's marker as a circled digit (①②③) and
+        give it no semantic type, no footnote class and an id no scheme
+        recognises. The note's own back-link is the same shape, so the printed
+        text alone cannot decide which is which — direction does: a marker
+        points *forward* to its note, a back-link points back to the marker.
+        Only forward links are reported, so a note's back-link stays a native
+        link and still jumps to the marker.
+        """
+        order = {block.id: i for i, block in enumerate(self.blocks)}
+        for element in root.iter("a"):
+            key = (element.sourceline, element.get("href") or "")
+            if key in self._seen_refs:
+                continue
+            text = " ".join("".join(element.itertext()).split())
+            if not FOOTNOTE_SYMBOL.fullmatch(text):
+                continue
+            _, fragment = split_fragment(element.get("href") or "")
+            if not fragment:
+                continue
+            owner = _owning_block(self, element)
+            target = self._by_dom_id.get(fragment)
+            # A note's own anchor heads the note's paragraph; a marker sits
+            # inside prose. An anchor that opens its own block is therefore the
+            # note's back-link, not a marker — and this holds across documents,
+            # where the marker and its note cannot be compared by position.
+            if owner is not None and (owner.text or "").lstrip().startswith(text):
+                continue
+            # Same document: a target that does not follow the marker is the
+            # marker's own back-link too. A target this document does not own
+            # (a marker into another chapter) cannot be compared, and is taken
+            # as forward.
+            if owner is not None and target is not None:
+                if order.get(target, 0) <= order.get(owner.id, 0):
+                    continue
+            self._footnote_ref(element)
 
     def _resolve_footnotes(self, blocks) -> None:
         """Turn footnote fragments into block ids — the graph edge.
@@ -695,6 +743,7 @@ def parse_document(book, chapter_index: int, href: str) -> tuple[Block, ...]:
     builder.walk(root)
     _claim_stray_ids(builder, root)
     _sweep_unclaimed_refs(builder, root)
+    builder._sweep_symbol_markers(root)
     blocks = tuple(builder.blocks)
     stash_key = (id(book), chapter_index)
     parse_stash[stash_key] = blocks

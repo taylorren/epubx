@@ -395,6 +395,29 @@ def write_multiblock_note_epub(path) -> Path:
     return write_chapter_epub(path, MULTIBLOCK_NOTE_CHAPTER, href="notes.xhtml")
 
 
+# The CJK circled-digit convention (Cambridge History of Republican China): a
+# note is marked with ①②③ and given no semantic type, no footnote class and an
+# id no scheme recognises. The note's own back-link is the same shape, so only
+# the layout tells them apart — a marker sits inside prose, a note's anchor
+# heads its own paragraph.
+CIRCLED_NOTE_CHAPTER = """<?xml version="1.0" encoding="utf-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head><title>Circled Notes</title></head>
+<body>
+  <p>Body prose carries a marker<a name="filepos10" id="filepos10" href="#filepos20">①</a> and keeps going for a while, the way real text does.</p>
+  <p>More prose, with a second marker<a name="filepos30" id="filepos30" href="#filepos40">②</a> sitting inside it.</p>
+  <p class="calibre12"><a name="filepos20" id="filepos20" href="#filepos10">①</a> The first note's text.</p>
+  <p class="calibre12"><a name="filepos40" id="filepos40" href="#filepos30">②</a> The second note's text.</p>
+</body>
+</html>
+"""
+
+
+def write_circled_note_epub(path) -> Path:
+    """A one-chapter book whose notes are marked with circled digits."""
+    return write_chapter_epub(path, CIRCLED_NOTE_CHAPTER, href="circled.xhtml")
+
+
 # Two chapters whose notes reference each other. Resolving either one walks the
 # other, which walks back into the first — the reentrant path of PITFALLS §17,
 # and the only path on which `parse_document`'s freeze could be lost, because

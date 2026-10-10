@@ -22,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from fixtures import (  # noqa: E402
     write_calibre_epub,
     write_chapter_epub,
+    write_circled_note_epub,
     write_epub,
     write_multiblock_note_epub,
     write_mutual_footnote_epub,
@@ -512,6 +513,19 @@ def test_a_note_no_other_note_follows_is_not_gathered(book):
     assert edges[2].target_dom_ids == ("fn3",)
     assert edges[2].note_text.startswith("The third note")
     assert "Measurements" not in edges[2].note_text
+
+
+def test_circled_digit_markers_are_footnotes(tmp_path):
+    """A CJK edition may print a marker as a circled digit and give it no
+    semantic type, no footnote class and an id no scheme recognises. It is
+    still a marker; the note's own back-link — the same shape, but heading
+    the note's paragraph — stays a native link, not an edge."""
+    path = write_circled_note_epub(tmp_path / "circled.epub")
+    with open_book(path) as b:
+        edges = b.chapters[0].footnotes
+    assert [e.text for e in edges] == ["①", "②"]
+    assert [e.note_text for e in edges] == [
+        "① The first note's text.", "② The second note's text."]
 
 
 # -- immutability ---------------------------------------------------------

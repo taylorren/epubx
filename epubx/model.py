@@ -157,9 +157,12 @@ class Footnote:
     """One footnote edge, normalized: a marker and the note it opens.
 
     `note_text` is extracted here so a reader can show a footnote without
-    fetching or re-parsing anything. A note spanning several paragraphs
-    reports the paragraph its anchor owns. `target_id` is None for markers
-    the graph could not resolve — the book's own link still serves them.
+    fetching or re-parsing anything. A note that runs on for several
+    paragraphs — the paragraphs after the anchor's own carry no id of their
+    own — is gathered up to the next note in document order; a note that no
+    other note follows keeps its own paragraph alone. `target_id` is None for
+    markers the graph could not resolve — the book's own link still serves
+    them.
     """
 
     block_id: str                        # the marker's block, e.g. 'c0003/b0012'
@@ -228,6 +231,41 @@ class Chapter:
         return self.block_by_id(target_id)
 
     @cached_property
+    def _note_text_by_id(self) -> dict[str, str]:
+        """The full text of each multi-paragraph note in this chapter, by id.
+
+        A note's target is the single paragraph its anchor owns; when the
+        paragraphs after it carry no id of their own, the note runs on to the
+        next note in document order and is gathered whole here. A note that no
+        other note follows, or whose span holds a marker (the body resumed —
+        an inline note, not a run of endnotes), keeps its own paragraph alone
+        and is absent from this map.
+
+        Note starts are read straight from `blocks`, never from `footnotes`:
+        a same-chapter note would otherwise resolve through the very property
+        being computed.
+        """
+        top = self.blocks
+        position = {block.id: i for i, block in enumerate(top)}
+        starts: set[int] = set()
+        for block in top:
+            for node in block:  # nested blocks included
+                if node.kind == FOOTNOTE_REF:
+                    target = node.attributes.get("target_id")
+                    if target in position:
+                        starts.add(position[target])
+        ordered = sorted(starts)
+        texts: dict[str, str] = {}
+        for i, start in enumerate(ordered[:-1]):  # the last note is unbounded
+            span = top[start:ordered[i + 1]]
+            if any(block.kind == FOOTNOTE_REF for block in span):
+                continue
+            texts[top[start].id] = "\n\n".join(
+                block.plain_text for block in span if block.plain_text
+            )
+        return texts
+
+    @cached_property
     def footnotes(self) -> tuple[Footnote, ...]:
         """Every footnote marker in this chapter, normalized.
 
@@ -247,10 +285,12 @@ class Chapter:
                 note_text: str | None = None
                 if target_id and "/" in target_id:
                     target_chapter = int(target_id[1:target_id.index("/")])
-                    target = self._book.chapters[target_chapter].block_by_id(target_id)
+                    chapter = self._book.chapters[target_chapter]
+                    target = chapter.block_by_id(target_id)
                     if target is not None:
                         dom_ids = tuple(target.attributes.get("dom_ids") or ())
-                        note_text = target.plain_text or None
+                        note_text = (chapter._note_text_by_id.get(target_id)
+                                     or target.plain_text or None)
                 edges.append(Footnote(
                     block_id=node.id,
                     text=node.text,

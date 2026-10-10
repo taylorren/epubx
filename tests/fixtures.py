@@ -372,6 +372,29 @@ def write_calibre_epub(path) -> Path:
     return write_chapter_epub(path, CALIBRE_CHAPTER, href="cal.xhtml")
 
 
+# The flat endnote shape (Tristram Shandy's Sorbonne memorandum): a note runs
+# on for several paragraphs, the paragraphs after the anchor's own carry no id,
+# and the next note's paragraph follows. The id alone cannot bound the note, so
+# the note is gathered up to the next one.
+MULTIBLOCK_NOTE_CHAPTER = """<?xml version="1.0" encoding="utf-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:epub="http://www.idpf.org/2007/ops">
+<head><title>Multiblock Notes</title></head>
+<body>
+  <p>Body prose names the first note<a epub:type="noteref" href="#fn1">1</a> and the second<a epub:type="noteref" href="#fn2">2</a>.</p>
+  <p id="fn1">The first note opens here, and</p>
+  <p>it continues into a second paragraph that carries no id of its own.</p>
+  <p id="fn2">The second note stands alone.</p>
+</body>
+</html>
+"""
+
+
+def write_multiblock_note_epub(path) -> Path:
+    """A one-chapter book whose first note spans several paragraphs."""
+    return write_chapter_epub(path, MULTIBLOCK_NOTE_CHAPTER, href="notes.xhtml")
+
+
 # Two chapters whose notes reference each other. Resolving either one walks the
 # other, which walks back into the first — the reentrant path of PITFALLS §17,
 # and the only path on which `parse_document`'s freeze could be lost, because

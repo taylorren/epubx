@@ -23,6 +23,7 @@ from fixtures import (  # noqa: E402
     write_calibre_epub,
     write_chapter_epub,
     write_epub,
+    write_multiblock_note_epub,
     write_mutual_footnote_epub,
     write_scan_epub,
 )
@@ -487,6 +488,30 @@ def test_note_backlinks_are_not_markers(tmp_path):
                  if node.kind == "footnote_ref"]
         assert "cal.xhtml#fnref900" not in hrefs
         assert "cal.xhtml#ftnref5" not in hrefs
+
+
+def test_note_spanning_several_paragraphs_is_gathered(tmp_path):
+    """A flat endnote runs from its own paragraph to the next note's, so the
+    whole note reaches the reader — not only the paragraph its anchor owns."""
+    path = write_multiblock_note_epub(tmp_path / "notes.epub")
+    with open_book(path) as b:
+        edges = b.chapters[0].footnotes
+    assert [e.text for e in edges] == ["1", "2"]
+    assert edges[0].note_text == (
+        "The first note opens here, and\n\n"
+        "it continues into a second paragraph that carries no id of its own."
+    )
+    # The second note is the last one: nothing bounds it, so it stays itself.
+    assert edges[1].note_text == "The second note stands alone."
+
+
+def test_a_note_no_other_note_follows_is_not_gathered(book):
+    """The last note is bounded by nothing, so body content after it must not
+    be folded in — the fixture's table and math follow its third note."""
+    edges = book.chapters[0].footnotes
+    assert edges[2].target_dom_ids == ("fn3",)
+    assert edges[2].note_text.startswith("The third note")
+    assert "Measurements" not in edges[2].note_text
 
 
 # -- immutability ---------------------------------------------------------
